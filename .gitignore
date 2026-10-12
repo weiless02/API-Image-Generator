@@ -25,3 +25,6 @@ __pycache__/
 image/**/*.png
 image/**/*.jpg
 image/**/*.jpeg
+
+# ============ 沿用远端仓库原有的这一条 ============
+env.md
