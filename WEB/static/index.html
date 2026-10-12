@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>生图</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ==================== 左列：输入 + 任务 ==================== -->
+  <div class="col">
+
+    <div class="panel">
+      <div class="top">
+        <h1>生图</h1>
+        <span class="pill" id="mock-pill" hidden>MOCK</span>
+        <span class="pill busy" id="busy-pill" hidden></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="tabs">
+        <button id="tab-txt2img" class="on" type="button">文生图</button>
+        <button id="tab-img2img" type="button">图生图</button>
+      </div>
+    </div>
+
+    <div class="panel scroll" style="flex:1">
+
+      <label class="field" id="ref-field">
+        <span>参考图（图生图用，顺序会影响模型对「图 1 / 图 2」的理解）</span>
+        <div id="drop" class="drop">拖图片进来，或点这里选择（可多选）</div>
+        <input id="file-input" type="file" accept="image/*" multiple hidden>
+      </label>
+
+      <div class="thumbs" id="thumbs"></div>
+
+      <label class="field">
+        <span>提示词</span>
+        <textarea id="prompt" placeholder=""></textarea>
+      </label>
+
+      <div class="row">
+        <label class="field">
+          <span>模型线路</span>
+          <select id="model"></select>
+        </label>
+        <label class="field">
+          <span>尺寸</span>
+          <select id="size"></select>
+        </label>
+      </div>
+
+      <label class="field">
+        <span>输出文件名（可留空；同名会自动加序号，不会覆盖）</span>
+        <input id="name" type="text" placeholder="image">
+      </label>
+
+      <button class="primary" id="submit" type="button">生成</button>
+      <div id="form-err" class="err" hidden style="margin-top:10px"></div>
+
+    </div>
+  </div>
+
+  <!-- ==================== 右列：任务 + 历史 ==================== -->
+  <div class="col">
+
+    <div class="panel scroll" id="tasks-panel" style="flex:1 1 55%">
+      <div class="sect-title"><span>任务</span><button class="ghost" id="clear-tasks" type="button">清空已结束</button></div>
+      <div id="tasks"><div class="empty">还没有任务</div></div>
+    </div>
+
+    <div class="panel scroll" style="flex:1 1 45%">
+      <div class="sect-title">
+        <span>历史</span>
+        <span style="display:flex;gap:6px">
+          <button class="ghost" id="hist-more" type="button" hidden>加载更多</button>
+          <button class="ghost" id="hist-reload" type="button">刷新</button>
+        </span>
+      </div>
+      <div class="hist" id="hist"></div>
+      <div class="empty" id="hist-empty" hidden>还没有图</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox"><img id="lightbox-img" alt=""></div>
+
+<script src="/app.js"></script>
+</body>
+</html>

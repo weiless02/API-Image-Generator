@@ -1,0 +1,27 @@
+# ============ 密钥：绝不入库 ============
+# 真 key 放在 key.bat 里，模板 key.bat.example 才进仓库。
+key.bat
+!key.bat.example
+
+# ============ 本机专属文件 ============
+# Windows 快捷方式：里面是本机绝对路径和机器名，对别人没有意义。
+*.lnk
+# Claude Code 的本地权限设置。
+# 前面要加 **/：含斜杠的模式锚定在本文件所在目录，不写 **/ 就匹配不到子目录。
+**/.claude/settings.local.json
+
+# ============ Python ============
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# ============ IDE ============
+.idea/
+
+# ============ 图片素材：不传 ============
+# aipicture 是生成结果（89MB），image 目录下散落的参考图也一并排除。
+# 写 **/ 是因为要连零层目录一起匹配：image/aipicture/日期/x.png 和 image/img.png 都命中。
+image/**/*.png
+image/**/*.jpg
+image/**/*.jpeg

@@ -1,0 +1,415 @@
+:root {
+  --bg: #14161c;
+  --panel: #1c1f28;
+  --panel-2: #232733;
+  --line: #2e3341;
+  --fg: #e6e9f0;
+  --fg-dim: #9aa3b5;
+  --accent: #5b9dff;
+  --accent-dim: #2f4a78;
+  --ok: #4ec98f;
+  --warn: #e8b559;
+  --err: #f0736a;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+/* 必须有这条：UA 样式表里的 [hidden]{display:none} 优先级极低，
+   会被下面 label.field{display:block}、.thumbs{display:flex} 这类规则盖掉，
+   导致 el.hidden = true 完全不起作用（切标签页时参考图区域不会消失）。 */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.55 "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+}
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* ---------- 布局 ---------- */
+
+.app {
+  display: grid;
+  grid-template-columns: minmax(420px, 1fr) minmax(320px, 420px);
+  gap: 16px;
+  padding: 16px;
+  height: 100vh;
+}
+
+@media (max-width: 1000px) {
+  .app { grid-template-columns: 1fr; height: auto; }
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+.panel.scroll { overflow-y: auto; min-height: 0; }
+
+/* ---------- 顶栏 ---------- */
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top h1 {
+  font-size: 16px;
+  margin: 0;
+  font-weight: 600;
+}
+
+.pill {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  color: var(--fg-dim);
+}
+
+.pill.mock { color: var(--warn); border-color: var(--warn); }
+.pill.busy { color: var(--accent); border-color: var(--accent-dim); }
+
+/* ---------- 标签页 ---------- */
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  background: var(--panel-2);
+  padding: 4px;
+  border-radius: var(--radius);
+}
+
+.tabs button {
+  flex: 1;
+  background: none;
+  border: 0;
+  padding: 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--fg-dim);
+}
+
+.tabs button.on {
+  background: var(--accent-dim);
+  color: #fff;
+}
+
+/* ---------- 表单 ---------- */
+
+label.field {
+  display: block;
+  margin-bottom: 12px;
+}
+
+label.field > span {
+  display: block;
+  font-size: 12px;
+  color: var(--fg-dim);
+  margin-bottom: 5px;
+}
+
+textarea, input[type="text"], select {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  outline: none;
+}
+
+textarea { resize: vertical; min-height: 76px; }
+
+textarea:focus, input:focus, select:focus {
+  border-color: var(--accent);
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+}
+
+.row > * { flex: 1; min-width: 0; }
+
+/* ---------- 拖拽区 ---------- */
+
+.drop {
+  border: 1.5px dashed var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  color: var(--fg-dim);
+  cursor: pointer;
+  transition: .15s;
+}
+
+.drop:hover, .drop.over {
+  border-color: var(--accent);
+  color: var(--fg);
+  background: rgba(91, 157, 255, .06);
+}
+
+.thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.thumb {
+  position: relative;
+  width: 84px;
+}
+
+.thumb img {
+  width: 84px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  display: block;
+}
+
+.thumb .idx {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  background: rgba(0, 0, 0, .72);
+  border-radius: 5px;
+  font-size: 11px;
+  padding: 1px 5px;
+}
+
+.thumb .ops {
+  display: flex;
+  justify-content: space-between;
+  gap: 2px;
+  margin-top: 3px;
+}
+
+.thumb .ops button {
+  flex: 1;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 1px 0;
+}
+
+.thumb .ops button:hover { border-color: var(--accent); }
+
+/* ---------- 按钮 ---------- */
+
+.primary {
+  width: 100%;
+  background: var(--accent);
+  color: #07131f;
+  font-weight: 600;
+  border: 0;
+  border-radius: 8px;
+  padding: 11px;
+  cursor: pointer;
+}
+
+.primary:disabled {
+  background: var(--panel-2);
+  color: var(--fg-dim);
+  cursor: not-allowed;
+}
+
+.ghost {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 5px 10px;
+  cursor: pointer;
+  color: var(--fg-dim);
+}
+
+.ghost:hover { color: var(--fg); border-color: var(--accent); }
+
+/* ---------- 任务卡片 ---------- */
+
+.task {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-bottom: 10px;
+  background: var(--panel);
+}
+
+.task .head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.task .kind {
+  font-size: 11px;
+  color: var(--fg-dim);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+
+.task .prompt {
+  color: var(--fg-dim);
+  font-size: 13px;
+  margin-bottom: 8px;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.st-running { color: var(--accent); }
+.st-done { color: var(--ok); }
+.st-error { color: var(--err); }
+.st-queued { color: var(--fg-dim); }
+.st-cancelled { color: var(--warn); }
+
+.spin {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--accent-dim);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  vertical-align: -2px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.task .bar {
+  height: 3px;
+  background: var(--panel-2);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.task .bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  width: 30%;
+  animation: slide 1.6s ease-in-out infinite;
+}
+
+@keyframes slide {
+  0% { margin-left: -30%; }
+  100% { margin-left: 100%; }
+}
+
+.err {
+  color: var(--err);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: rgba(240, 115, 106, .08);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.task .out {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.task .out img {
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  cursor: zoom-in;
+}
+
+.empty {
+  color: var(--fg-dim);
+  text-align: center;
+  padding: 26px 10px;
+  font-size: 13px;
+}
+
+/* ---------- 历史 ---------- */
+
+.hist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.hist a {
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  aspect-ratio: 1;
+  background: var(--panel-2);
+}
+
+.hist img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.hist a:hover { border-color: var(--accent); }
+
+.sect-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--fg-dim);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+/* ---------- 大图 ---------- */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .88);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  cursor: zoom-out;
+  padding: 24px;
+}
+
+.lightbox.on { display: flex; }
+
+.lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+}
