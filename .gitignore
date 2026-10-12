@@ -24,7 +24,7 @@ __pycache__/
 
 # ============ 图片素材：不传 ============
 # aipicture 是生成结果（89MB），image 目录下散落的参考图也一并排除。
-# 写 **/ 是因为要连零层目录一起匹配：image/aipicture/日期/x.png 和 image/img.png 都命中。
+# 写 **/ 是因为要连零层目录一起匹配：image/aipicture/日期/x.png 和 image/00001.png 都命中。
 image/**/*.png
 image/**/*.jpg
 image/**/*.jpeg

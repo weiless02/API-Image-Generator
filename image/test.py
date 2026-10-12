@@ -21,7 +21,7 @@ client = OpenAI(
 )
 
 resp = client.images.generate(
-    model="gpt-image-2.5",  # ← 模型名要按中转站文档写
+    model="gpt-image-2.5-flare",  # ← 模型名要按中转站文档写
     prompt="生成一个沿海高速的图片，可以看见大海，写实风格",
     size="1024x1024",
     n=1,
@@ -32,4 +32,4 @@ img_bytes = base64.b64decode(resp.data[0].b64_json)
 with open(".png", "wb") as f:
     f.write(img_bytes)
 
-print("搞定，图片存到 output.png")
+print("搞定")
