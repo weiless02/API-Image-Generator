@@ -3,13 +3,16 @@ import os
 
 from openai import OpenAI
 
-# key 从环境变量读，源码里不写死（这个仓库要推到 GitHub）。
-# 本地怎么设见 WEB/key.bat.example。
-api_key = os.environ.get("A6API_KEY")
+# key 从同目录的 env.py 读；那个文件不进仓库（见根目录 .gitignore）。
+# 第一次用：把 env.example.py 复制成 env.py，填上你的 key。
+try:
+    from env import A6_API_KEY as api_key
+except ImportError:
+    api_key = None
+api_key = api_key or os.environ.get("A6API_KEY")
 if not api_key:
     raise SystemExit(
-        "没有读到环境变量 A6API_KEY。把 WEB/key.bat.example 复制成 WEB/key.bat，\n"
-        "填上你的 key，然后用 WEB/启动.bat 启动。"
+        "没有找到 API key。把 image/env.example.py 复制成 image/env.py，填上你的 key。"
     )
 
 client = OpenAI(

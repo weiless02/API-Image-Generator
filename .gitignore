@@ -1,7 +1,10 @@
 # ============ 密钥：绝不入库 ============
-# 真 key 放在 key.bat 里，模板 key.bat.example 才进仓库。
+# 网页版：真 key 放 key.bat，模板 key.bat.example 才进仓库。
 key.bat
 !key.bat.example
+# 脚本版（image/）：真 key 放 env.py，模板 env.example.py 才进仓库。
+image/env.py
+!image/env.example.py
 
 # ============ 本机专属文件 ============
 # Windows 快捷方式：里面是本机绝对路径和机器名，对别人没有意义。

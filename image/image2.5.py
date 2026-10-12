@@ -67,17 +67,22 @@ class FieldNameClient(httpx.Client):
 
 
 def _require_api_key():
-    """从环境变量取 key；取不到就抛错，并说清楚本地怎么设。
+    """取 API key：优先同目录的 env.py，其次环境变量 A6_API_KEY。
 
-    【为什么没有默认值】key 写死在源码里，推到 GitHub 就等于公开。
-    本地设置方法见 WEB/key.bat.example。
+    env.py 是本地文件，被根目录 .gitignore 排除，不会上传；模板见 env.example.py。
+    【为什么不写默认值】key 写死在源码里，推到 GitHub 就等于公开。
     """
-    key = os.environ.get("A6API_KEY")
+    try:
+        from env import A6_API_KEY as key      # 同目录的 env.py
+    except ImportError:
+        key = None
+    if not key:
+        key = os.environ.get("A6API_KEY")
     if not key:
         raise RuntimeError(
-            "没有读到环境变量 A6API_KEY，无法调用接口。\n"
-            "本地运行：把 WEB/key.bat.example 复制成 WEB/key.bat，填上你的 key，\n"
-            "然后用 WEB/启动.bat 启动（它会自动加载 key.bat）。"
+            "没有找到 API key，无法调用接口。\n"
+            "本地运行：把同目录的 env.example.py 复制成 env.py，填上你的 key；\n"
+            "或者设环境变量 A6API_KEY。"
         )
     return key
 
