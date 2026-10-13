@@ -62,7 +62,7 @@ DEFAULT_NAME = "image"                   # 前端没填文件名时用这个
 
 MOCK = os.environ.get("A6_MOCK", "").strip().lower() not in ("", "0", "false", "no")
 
-# 模型线路。中转站后面挂着多个上游，-sunburst / -flare 互为备份：
+# 模型线路。服务端后面挂着多个上游，-sunburst / -flare 互为备份：
 # 主线路 429/5xx/超时时自动换下一条，但内容策略类错误换线路也没用。
 MODEL_LINES = [
     "gpt-image-2.5-sunburst",
@@ -77,13 +77,13 @@ DEFAULT_MODEL = MODEL_LINES[0]
 #
 #   【SDK 声明过的】256x256 / 512x512 / 1024x1024 / 1536x1024 / 1024x1536 / auto
 #     openai SDK 里 images.edit 的 size 类型是 Literal 列出来的。
-#     其中只有 1024x1024 真正对着中转站跑通过，其余没实测。
+#     其中只有 1024x1024 真正对着服务端跑通过，其余没实测。
 #
 #   【SDK 没声明的】2048x2048 / 2048x1152 / 3840x2160 / 2160x3840
 #     这 4 个不在 Literal 里。但 size 的类型是 Union[str, Literal[...]]，
 #     带上 str 之后【任何字符串都能通过检查并发出去】，SDK 不拦也不校验。
-#     中转站认不认是未知的 —— 不认的话会回 400，报错会显示在任务卡片上。
-#     注意这两个 4K 尺寸（3840x2160 / 2160x3840）如果中转站接受，
+#     服务端认不认是未知的 —— 不认的话会回 400，报错会显示在任务卡片上。
+#     注意这两个 4K 尺寸（3840x2160 / 2160x3840）如果服务端接受，
 #     耗时和额度很可能明显高于 1024 档，别一次点一堆。
 SIZES = [
     "256x256",
@@ -102,7 +102,7 @@ DEFAULT_SIZE = "1024x1024"
 # 张数固定 1。原来 image2.5.py / test.py 就是一张张跑的，不需要批量，
 # 接口参数里也不再暴露 n —— 免得误传 n=4 一次扣四张的额度。
 # 同理不暴露 quality（画质档位）：原本的脚本从来没传过它，
-# 中转站认不认也没验证过，留着只是多一个可能踩坑的旋钮。
+# 服务端认不认也没验证过，留着只是多一个可能踩坑的旋钮。
 N_IMAGES = 1
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
@@ -110,7 +110,7 @@ IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 # 两次调用之间的最长等待，给前端和任务表用
 READ_TIMEOUT = 300.0
 
-# 中转站后面挂着多个上游，对多图 multipart 的字段名要求不一致：
+# 服务端后面挂着多个上游，对多图 multipart 的字段名要求不一致：
 # 有的只认重复的 image（SDK 单图用的就是这个），有的只认 SDK 多图默认的 image[]。
 # 认不出的会回 400 image_input_required，而 SDK 不重试 400（只重试 408/409/429/5xx），
 # 所以这个 400 得我们自己接手，换另一种字段名再来一次。
@@ -294,15 +294,15 @@ def _edit_once(images, *, prompt, model, size, **kwargs):
         except BadRequestError as e:
             if "image_input_required" not in str(e):
                 raise  # 是别的问题（prompt / 额度 / 模型名），不关字段名的事
-            log.warning("字段名 %r 被中转站拒绝，换另一种重试", field)
+            log.warning("字段名 %r 被服务端拒绝，换另一种重试", field)
             last_err = e
-    raise RuntimeError(f"两种字段名都被拒了，中转站可能又改接口了。原始报错：\n{last_err}")
+    raise RuntimeError(f"两种字段名都被拒了，服务端可能又改接口了。原始报错：\n{last_err}")
 
 
 class EmptyImageData(RuntimeError):
     """响应里没有图片数据。
 
-    中转站会在 HTTP 200 的 body 里包错误：上游挂掉时返回
+    服务端会在 HTTP 200 的 body 里包错误：上游挂掉时返回
     {"data": null, "error": {"code": "upstream_error", ...}}，状态码却是 200。
     SDK 只看状态码，所以既不重试也不抛错，直接把 data=None 交给调用方，
     最后在 resp.data[0] 处炸出一句毫无信息量的

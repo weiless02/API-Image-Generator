@@ -45,7 +45,7 @@ PORT = int(os.environ.get("A6_PORT", "8765"))
 
 # 并发上限。不用 asyncio.to_thread：它写死走事件循环的默认线程池
 # （min(32, cpu+4)，这台机器上十几个），一口气点十次就是十条 300 秒的连接
-# 同时打向中转站，几乎必然撞限流，还会被上游重复计费。
+# 同时打向服务端，几乎必然撞限流，还会被上游重复计费。
 MAX_WORKERS = int(os.environ.get("A6_MAX_CONCURRENCY", "2"))
 MAX_ACTIVE = MAX_WORKERS + int(os.environ.get("A6_MAX_QUEUE", "4"))   # 排队深度上限
 

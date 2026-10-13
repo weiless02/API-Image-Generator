@@ -21,7 +21,7 @@ client = OpenAI(
 )
 
 resp = client.images.generate(
-    model="gpt-image-2.5-flare",  # ← 模型名要按中转站文档写
+    model="gpt-image-2.5-flare",  # ← 模型名要按服务端文档写
     prompt="生成一个沿海高速的图片，可以看见大海，写实风格",
     size="1024x1024",
     n=1,

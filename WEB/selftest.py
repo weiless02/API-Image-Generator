@@ -3,9 +3,9 @@
 锁的是两件「坏了也不会报错、只会静默出错」的事：
 
 1. openai 给多图 multipart 用的字段名。a6.FieldNameClient 靠【字节替换】
-   b'name="image[]"' 来适配中转站的两种要求。如果 openai 哪天把默认的
+   b'name="image[]"' 来适配服务端的两种要求。如果 openai 哪天把默认的
    array_format 从 "brackets" 改成 "repeat"（裸 image），替换就再也匹配不上，
-   代码不报错，只是发错字段名 → 中转站回 400 image_input_required。
+   代码不报错，只是发错字段名 → 服务端回 400 image_input_required。
 2. 替换之后确实变成了我们要的形状（两个 name="image"）。
 
 这个文件可以随便 import openai 的私有 API —— 金丝雀的职责就是盯住它们。
@@ -171,7 +171,7 @@ def _():
     assert b'filename="upload"' not in body, "落到 httpx 的默认名了，说明 .name 没生效"
 
 
-# ------------------------------------------- 3. 200 响应里包着错误（本中转站老毛病）
+# ------------------------------------------- 3. 200 响应里包着错误（本服务端老毛病）
 
 
 class _FakeItem:

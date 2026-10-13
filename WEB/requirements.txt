@@ -1,10 +1,10 @@
 # 网页版依赖。装到哪个解释器，启动.bat 就用哪个解释器。
 
 # 【这两个版本是钉死的，不要随手升级】
-# a6.FieldNameClient 靠字节替换 b'name="image[]"' 来适配中转站的两种字段名要求。
+# a6.FieldNameClient 靠字节替换 b'name="image[]"' 来适配服务端的两种字段名要求。
 # 这个字段名来自 openai 内部 extract_files 的 array_format 默认值（"brackets"），
 # 而 httpx 的 multipart 编码行为又决定了替换后能不能正常工作。
-# 任何一边变了，代码都不会报错，只会静默发错字段名 → 中转站回 400。
+# 任何一边变了，代码都不会报错，只会静默发错字段名 → 服务端回 400。
 # 升级前先跑：python selftest.py
 openai==2.38.0
 httpx==0.28.1

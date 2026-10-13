@@ -26,13 +26,13 @@ OUTPUT_ROOT = "aipicture"   # 输出根目录名，建在 BASE_DIR 下
 
 PROMPT = "把图片人物的白色外套去掉"
 
-MODEL = "gpt-image-2.5"     # 编辑接口的模型名，按中转站文档写gpt-image-2.5-sunburst/gpt-image-2.5-flare
+MODEL = "gpt-image-2.5-flare"     # 编辑接口的模型名，按服务端文档写gpt-image-2.5-sunburst/gpt-image-2.5-flare
 SIZE = "1024x1024"
 # ==========================================================
 
 IMAGE_PATHS = [os.path.join(BASE_DIR, n) for n in INPUT_IMAGES]
 
-# 中转站后面挂着多个上游，对多图 multipart 的字段名要求不一致：
+# 服务端后面挂着多个上游，对多图 multipart 的字段名要求不一致：
 # 有的只认重复的 image（SDK 单图用的就是这个），有的只认 SDK 多图默认的 image[]。
 # 认不出的会回 400 image_input_required，而 SDK 不重试 400（只重试 408/409/429/5xx），
 # 所以这个 400 得我们自己接手，换另一种字段名再来一次。
@@ -123,9 +123,9 @@ def edit_image(prompt, **kwargs):
             except BadRequestError as e:
                 if "image_input_required" not in str(e):
                     raise  # 是别的问题（prompt / 额度 / 模型名），不关字段名的事
-                print(f"[提示] 字段名 {field!r} 被中转站拒绝，换另一种重试…")
+                print(f"[提示] 字段名 {field!r} 被服务端拒绝，换另一种重试…")
                 last_err = e
-    raise RuntimeError(f"两种字段名都被拒了，中转站可能又改接口了。原始报错：\n{last_err}")
+    raise RuntimeError(f"两种字段名都被拒了，服务端可能又改接口了。原始报错：\n{last_err}")
 
 
 t0 = time.perf_counter()

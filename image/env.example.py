@@ -4,7 +4,7 @@
 
 本文件（env.example.py）是模板，会进仓库 ——【不要】把真 key 写在这里。
 
-key 从中转站后台拿，形如 sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx。
+key 从服务端后台拿，形如 sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx。
 """
 
 A6_API_KEY = "sk-把你的key填在这里"
