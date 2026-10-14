@@ -127,7 +127,9 @@ label.field > span {
   margin-bottom: 5px;
 }
 
-textarea, input[type="text"], select {
+/* 注意 type="password" 也得列进来：设置里那个 API key 框默认就是密码态，
+   漏了它就会落回浏览器默认的白底，和旁边的控件格格不入。 */
+textarea, input[type="text"], input[type="password"], select {
   width: 100%;
   background: var(--panel-2);
   border: 1px solid var(--line);
@@ -413,3 +415,55 @@ textarea:focus, input:focus, select:focus {
   max-height: 100%;
   border-radius: 8px;
 }
+
+/* ---------- 设置 ---------- */
+
+/* 左列最后一个面板，被上面 flex:1 的表单面板顶到左下角 */
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  padding: 24px;
+}
+
+.modal.on { display: flex; }
+
+.modal-box {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  width: min(560px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  font-weight: 600;
+}
+
+/* .row > * 默认 flex:1，会把按钮也拉成一样宽；这一档让按钮按内容宽度 */
+.row.tight > button { flex: 0 0 auto; }
+
+.hint {
+  display: block;
+  font-size: 11.5px;
+  color: var(--fg-dim);
+  margin-top: 5px;
+}
+
+.hint code { font-size: 11px; }

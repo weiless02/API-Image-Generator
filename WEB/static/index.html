@@ -63,6 +63,11 @@
       <div id="form-err" class="err" hidden style="margin-top:10px"></div>
 
     </div>
+
+    <div class="panel foot">
+      <button class="ghost" id="btn-settings" type="button">⚙ 设置</button>
+      <span class="hint" id="foot-hint" hidden></span>
+    </div>
   </div>
 
   <!-- ==================== 右列：任务 + 历史 ==================== -->
@@ -85,6 +90,40 @@
       <div class="empty" id="hist-empty" hidden>还没有图</div>
     </div>
 
+  </div>
+</div>
+
+<div class="modal" id="settings-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span>设置</span>
+      <button class="ghost" id="settings-close" type="button">✕</button>
+    </div>
+
+    <label class="field">
+      <span>图片保存位置</span>
+      <div class="row tight">
+        <input id="set-output-dir" type="text" spellcheck="false" placeholder="留空 = 用默认目录">
+        <button class="ghost" id="set-browse" type="button">浏览…</button>
+      </div>
+      <span class="hint" id="set-output-hint"></span>
+    </label>
+
+    <label class="field">
+      <span>API key</span>
+      <div class="row tight">
+        <input id="set-api-key" type="password" autocomplete="off" spellcheck="false">
+        <button class="ghost" id="set-key-toggle" type="button">显示</button>
+      </div>
+      <span class="hint">存在 <code id="set-path"></code>，不进仓库。</span>
+    </label>
+
+    <div class="err" id="settings-err" hidden></div>
+
+    <div class="row tight" style="justify-content:flex-end;margin-top:14px">
+      <button class="ghost" id="set-reset-dir" type="button">恢复默认目录</button>
+      <button class="primary" id="settings-save" type="button">保存</button>
+    </div>
   </div>
 </div>
 

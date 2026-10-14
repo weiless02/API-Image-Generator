@@ -1,10 +1,20 @@
 # ============ 密钥：绝不入库 ============
-# 网页版：真 key 放 key.bat，模板 key.bat.example 才进仓库。
+# 网页版：key 现在存在 WEB/settings.json（规则见下面的「网页版设置」一节），
+# 进仓库的是模板 WEB/settings.json.example。
+# key.bat 已废弃（改用网页左下角的设置面板），这条忽略保留着，只是防止本机
+# 那个老文件被误提交。
 key.bat
-!key.bat.example
 # 脚本版（image/）：真 key 放 env.py，模板 env.example.py 才进仓库。
 image/env.py
 !image/env.example.py
+
+# ============ 网页版设置 ============
+# 里面有 API key。
+# 【开头的 / 不能省】不含斜杠的模式在 gitignore 里匹配任意层级，写成裸的
+# settings.json 会把 .claude/settings.json 之类也一起忽略掉。
+# 改完用 `git check-ignore -v WEB/settings.json` 验证一下。
+/WEB/settings.json
+/WEB/settings.json.corrupt
 
 # ============ 本机专属文件 ============
 # Windows 快捷方式：里面是本机绝对路径和机器名，对别人没有意义。

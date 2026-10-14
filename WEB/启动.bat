@@ -17,9 +17,14 @@ rem Uncomment the next line to fake image generation locally
 rem (instant, no API calls). Useful when tweaking the UI.
 rem set A6_MOCK=1
 
-rem Load the local API key. key.bat is git-ignored (template: key.bat.example).
-rem If you have not created it, A6_API_KEY stays unset and app.py says so.
-if exist key.bat call key.bat
+rem API key and output dir now live in settings.json, edited from the web UI
+rem (the gear button at the bottom-left of the page).
+rem
+rem The two conditions below are for a ONE-TIME migration only: on the very
+rem first run there is no settings.json yet, so an old key.bat (if present)
+rem is loaded once and app.py moves the key into settings.json. After that
+rem the first condition is false forever and key.bat is never read again.
+if not exist settings.json if exist key.bat call key.bat
 
 "%PY%" app.py
 pause

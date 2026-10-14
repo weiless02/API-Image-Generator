@@ -67,7 +67,6 @@ MOCK = os.environ.get("A6_MOCK", "").strip().lower() not in ("", "0", "false", "
 MODEL_LINES = [
     "gpt-image-2.5-sunburst",
     "gpt-image-2.5-flare",
-    "gpt-image-2.5",
 ]
 DEFAULT_MODEL = MODEL_LINES[0]
 
@@ -165,17 +164,19 @@ class FieldNameClient(httpx.Client):
 
 
 def _require_api_key():
-    """从环境变量取 key；取不到就抛错，并说清楚本地怎么设。
+    """从环境变量取 key；取不到就抛错，并说清楚用户该怎么设。
 
     【为什么没有默认值】key 写死在源码里，推到 GitHub 就等于公开。
-    本地设置方法见同目录的 key.bat.example。
+
+    为什么是环境变量而不是直接读 settings.json：app.py 启动和保存设置时会把
+    设置里的 key 写进这个环境变量，客户端层只认环境变量这一个来源，就不必知道
+    设置存在哪、什么格式。
     """
     key = os.environ.get("A6API_KEY")
     if not key:
         raise RuntimeError(
-            "没有读到环境变量 A6API_KEY，无法调用接口。\n"
-            "本地运行：把 WEB/key.bat.example 复制成 WEB/key.bat，填上你的 key，\n"
-            "然后用 启动.bat 启动（它会自动加载 key.bat）。"
+            "还没有配置 API key，无法调用接口。\n"
+            "打开网页左下角的「设置」，把 key 填进 API key 那一栏，保存即可。"
         )
     return key
 
@@ -216,6 +217,20 @@ def get_client(field: str) -> OpenAI:
         if field not in _clients:
             _clients[field] = _make_client(field)
         return _clients[field]
+
+
+def reset_clients() -> None:
+    """丢掉缓存的客户端，让下一次调用用当前的环境变量重建。
+
+    【换 key 之后必须调】客户端在构造时就把 key 固定进去了（见 _make_client），
+    不清缓存的话，用户在设置里改了 key 也还是拿旧的发请求。
+
+    只清 dict、【故意不】close()：worker 线程可能正握着其中某个客户端跑请求，
+    close 会把那条连接掐断，让正在生成的任务莫名失败。没人引用的老对象
+    自己会被 GC 回收，代价只是偶尔多留一个连接池。
+    """
+    with _clients_lock:
+        _clients.clear()
 
 
 def _field_order():

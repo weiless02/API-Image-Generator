@@ -279,7 +279,116 @@ def _():
         a6.OUTPUT_ROOT = real_root
 
 
-# ---------------------------------------------------------------- 5. MOCK 通路
+# ------------------------------------------------------- 5. 设置持久化（不发网络）
+
+
+@check("settings_store 读坏文件时回退默认值，且不抛异常")
+def _():
+    import json
+    import tempfile
+    from pathlib import Path
+
+    import settings_store
+
+    real = settings_store.SETTINGS_PATH
+    with tempfile.TemporaryDirectory() as td:
+        settings_store.SETTINGS_PATH = Path(td) / "settings.json"
+        try:
+            # 语法错误 —— 用户用记事本手改最容易改出来的那种
+            settings_store.SETTINGS_PATH.write_text("{ 这不是 JSON", encoding="utf-8")
+            s = settings_store.load()
+            assert s["api_key"] is None and s["output_dir"] is None, s
+            assert settings_store.SETTINGS_PATH.with_name("settings.json.corrupt").exists(), \
+                "坏文件应当被改名留证"
+
+            # 类型不对 / 顶层不是对象 —— 也只能当「没设过」，不能抛
+            for junk in ['{"api_key": 123, "output_dir": []}', "[1,2,3]", '"hello"']:
+                settings_store.SETTINGS_PATH.write_text(junk, encoding="utf-8")
+                s = settings_store.load()
+                assert s["api_key"] is None and s["output_dir"] is None, (junk, s)
+
+            # 正常文件要能读出来
+            settings_store.SETTINGS_PATH.write_text(
+                json.dumps({"api_key": "sk-test", "output_dir": "D:\\图片"}), encoding="utf-8")
+            s = settings_store.load()
+            assert s["api_key"] == "sk-test" and s["output_dir"] == "D:\\图片", s
+        finally:
+            settings_store.SETTINGS_PATH = real
+
+
+@check("settings_store.save 是原子写，且能增改不丢字段")
+def _():
+    import json
+    import tempfile
+    from pathlib import Path
+
+    import settings_store
+
+    real = settings_store.SETTINGS_PATH
+    with tempfile.TemporaryDirectory() as td:
+        settings_store.SETTINGS_PATH = Path(td) / "settings.json"
+        try:
+            settings_store.save(api_key="sk-a", output_dir="D:\\A")
+            settings_store.save(api_key="sk-b")          # 只改 key，目录不能丢
+            s = settings_store.load()
+            assert s["api_key"] == "sk-b" and s["output_dir"] == "D:\\A", s
+            assert not settings_store.SETTINGS_PATH.with_name("settings.json.tmp").exists(), \
+                "临时文件应当已经被 os.replace 掉"
+            assert json.loads(settings_store.SETTINGS_PATH.read_text(encoding="utf-8"))["api_key"] == "sk-b"
+        finally:
+            settings_store.SETTINGS_PATH = real
+
+
+@check("normalize_output_dir 挡得住相对路径 / 盘符根 / 文件 / 空值")
+def _():
+    import tempfile
+    from pathlib import Path
+
+    import settings_store
+
+    for bad in ["x\\y", "..\\..\\x", "C:\\", "D:\\", "", "   ", '"D:"']:
+        try:
+            settings_store.normalize_output_dir(bad)
+        except settings_store.InvalidSetting:
+            pass
+        else:
+            raise AssertionError(f"{bad!r} 本该被拒，却通过了")
+
+    with tempfile.TemporaryDirectory() as td:
+        # 一个已经存在的【文件】
+        f = Path(td) / "not-a-dir.txt"
+        f.write_text("x", encoding="utf-8")
+        try:
+            settings_store.normalize_output_dir(str(f))
+        except settings_store.InvalidSetting as e:
+            assert "文件" in str(e), str(e)
+        else:
+            raise AssertionError("指向文件本该被拒")
+
+        # 正常情况：不存在的目录会被建出来，并返回 Path
+        target = Path(td) / "新建的中文 目录"
+        got = settings_store.normalize_output_dir(str(target))
+        assert isinstance(got, Path) and got.is_dir(), got
+        # 探针文件不能留下
+        assert not (got / ".a6-write-test").exists(), "写探针没有清理掉"
+
+
+@check("reset_clients 清空缓存，且不关闭别人正用着的客户端")
+def _():
+    class _Fake:
+        closed = False
+
+        def close(self):
+            self.closed = True
+
+    fake = _Fake()
+    a6._clients["image[]"] = fake
+    a6.reset_clients()
+    assert a6._clients == {}, "缓存没清空"
+    assert fake.closed is False, "不能 close()：正在跑的任务会握着它"
+
+
+# ---------------------------------------------------------------- 6. MOCK 通路
 
 @check("MOCK 模式能产出一张合法 PNG（且不发网络请求）")
 def _():

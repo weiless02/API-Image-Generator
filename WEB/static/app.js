@@ -12,6 +12,9 @@ const state = {
   },
   files: [],          // {id, file, url}
   tasks: new Map(),   // id -> task 对象
+  settings: null,     // GET /api/settings 的结果
+  keyDirty: false,    // 用户动过 key 输入框没有；没动过就不提交 api_key
+  dirDirty: false,    // 同上，针对目录框
   histOffset: 0,
   histLimit: 30,
   histTotal: 0,
@@ -95,19 +98,37 @@ async function boot() {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); }
   });
 
-  $('#clear-tasks').onclick = () => {
-    for (const [id, t] of state.tasks) {
-      if (t.status === 'done' || t.status === 'error' || t.status === 'cancelled') {
-        state.tasks.delete(id);
-        $(`#task-${id}`)?.remove();
-      }
-    }
-    renderTaskEmpty();
-  };
+  $('#clear-tasks').onclick = dropFinishedTasks;
   $('#hist-reload').onclick = () => loadHistory(true);
   $('#hist-more').onclick = () => loadHistory(false);
 
   $('#lightbox').onclick = () => $('#lightbox').classList.remove('on');
+
+  // ---- 设置面板 ----
+  $('#btn-settings').onclick = openSettings;
+  $('#settings-close').onclick = closeSettings;
+  $('#settings-modal').onclick = (e) => { if (e.target.id === 'settings-modal') closeSettings(); };
+  $('#settings-save').onclick = saveSettings;
+  $('#set-browse').onclick = browseFolder;
+  $('#set-key-toggle').onclick = toggleKey;
+  $('#set-reset-dir').onclick = () => { $('#set-output-dir').value = ''; state.dirDirty = true; };
+  $('#set-output-dir').oninput = () => { state.dirDirty = true; };
+  $('#set-api-key').oninput = () => { state.keyDirty = true; };
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    closeSettings();
+    $('#lightbox').classList.remove('on');
+  });
+
+  // 这台机器弹不出原生对话框时，把「浏览…」藏掉，只留手输路径
+  if (c.can_pick_folder === false) $('#set-browse').hidden = true;
+
+  // 没配 key 首页就给个提示，否则第一次用的人点了生成才知道要配
+  if (!c.has_api_key) {
+    const h = $('#foot-hint');
+    h.hidden = false;
+    h.textContent = '还没配置 API key，点「设置」填一个';
+  }
 
   setTab('txt2img');
   await loadHistory(true);
@@ -460,6 +481,149 @@ function tick() {
       ? `已排队 ${fmtDur(now - t.created)}`
       : `已生成 ${fmtDur(t.started ? now - t.started : 0)}`;
   }
+}
+
+/* ---------------------------------------------------------------- 设置 */
+
+const SRC_TEXT = { settings: '设置', env: '环境变量', default: '默认', none: '未设置' };
+
+function settingsErr(msg) {
+  const el = $('#settings-err');
+  el.hidden = !msg;
+  if (msg) el.textContent = msg;
+}
+
+async function openSettings() {
+  settingsErr('');
+  try {
+    state.settings = await api('/api/settings');
+  } catch (e) {
+    alert('读不到设置：' + e.message);
+    return;
+  }
+  const s = state.settings;
+
+  $('#set-output-dir').value = s.output_dir || '';      // 空 = 用默认目录
+  $('#set-output-hint').textContent =
+    `当前生效：${s.output_dir_effective}（来源：${SRC_TEXT[s.output_dir_source] || s.output_dir_source}）` +
+    `· 换目录不会动旧目录里的文件`;
+  $('#set-path').textContent = s.settings_path;
+
+  // key 一律回到「密码态 + 占位符」，【绝不把完整值塞进 DOM】。
+  // 想看完整值要显式点「显示」，那时才单独去后端取一次。
+  const k = $('#set-api-key');
+  k.type = 'password';
+  k.value = '';
+  k.placeholder = s.has_api_key
+    ? `已保存 ${s.api_key_masked}（点「显示」看完整值）`
+    : '还没设置';
+  $('#set-key-toggle').textContent = '显示';
+
+  state.keyDirty = false;
+  state.dirDirty = false;
+  $('#settings-modal').classList.add('on');
+}
+
+function closeSettings() {
+  $('#settings-modal').classList.remove('on');
+}
+
+async function toggleKey() {
+  const k = $('#set-api-key');
+  const btn = $('#set-key-toggle');
+
+  if (k.type !== 'password') {          // 已经在明文态 → 藏回去
+    k.type = 'password';
+    btn.textContent = '显示';
+    return;
+  }
+
+  // 用户已经自己敲过内容了就别去覆盖他，只把 type 切过来
+  if (!state.keyDirty) {
+    try {
+      const r = await api('/api/settings/api-key');
+      k.value = r.api_key;
+    } catch (e) {
+      settingsErr('取不到 key：' + e.message);
+      return;
+    }
+  }
+  k.type = 'text';
+  btn.textContent = '隐藏';
+}
+
+async function browseFolder() {
+  const btn = $('#set-browse');
+  btn.disabled = true;
+  btn.textContent = '选择中…';
+  try {
+    const r = await api('/api/pick-folder?initial=' + encodeURIComponent($('#set-output-dir').value.trim()),
+                        { method: 'POST' });
+    if (r.ok) { $('#set-output-dir').value = r.path; state.dirDirty = true; }
+    // r.cancelled 就是用户点了取消，什么都不做，保留他已经输入的值
+  } catch (e) {
+    settingsErr(e.message);             // 501 时后端给的就是「请手动输入路径」
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '浏览…';
+  }
+}
+
+async function saveSettings() {
+  settingsErr('');
+
+  const body = {};
+  if (state.dirDirty) body.output_dir = $('#set-output-dir').value.trim();   // "" = 恢复默认
+  if (state.keyDirty) body.api_key = $('#set-api-key').value;                // "" = 清空
+
+  if (!Object.keys(body).length) { closeSettings(); return; }   // 什么都没改
+
+  const running = [...state.tasks.values()]
+    .filter((t) => t.status === 'queued' || t.status === 'running').length;
+  if (running && body.output_dir !== undefined &&
+      !confirm(`还有 ${running} 个任务在跑。换目录后它们会存到新目录，旧目录里的文件不动。继续？`)) {
+    return;
+  }
+
+  const btn = $('#settings-save');
+  btn.disabled = true;
+  try {
+    const r = await api('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    state.cfg.output_root = r.output_dir_effective;
+    state.cfg.has_api_key = r.has_api_key;
+    if (r.has_api_key) $('#foot-hint').hidden = true;
+    if (r.warning) alert(r.warning);
+    if (r.changed.output_dir) onOutputRootChanged();
+    closeSettings();
+  } catch (e) {
+    // 后端保证这时候当前生效的目录一个字都没动
+    settingsErr(e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function dropFinishedTasks() {
+  for (const [id, t] of state.tasks) {
+    if (t.status === 'done' || t.status === 'error' || t.status === 'cancelled') {
+      state.tasks.delete(id);
+      $(`#task-${id}`)?.remove();
+    }
+  }
+  renderTaskEmpty();
+}
+
+// 换了输出目录之后：
+// 已结束的任务卡片上那些图指向旧目录，URL 是 "/images/日期/名字"，换根之后必然 404，
+// 所以连同卡片一起清掉；【正在跑的任务要留着】—— 它们此刻还没有图，等 done 的时候
+// save_image 读的是那一刻的 OUTPUT_ROOT（已经是新目录了），URL 天然指向新目录。
+function onOutputRootChanged() {
+  dropFinishedTasks();
+  loadHistory(true);
 }
 
 /* ---------------------------------------------------------------- 历史 */
