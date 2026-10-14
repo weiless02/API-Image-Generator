@@ -229,7 +229,15 @@ async def guard(request, call_next):
             oh = None
         if oh not in ALLOWED_HOSTS:
             return JSONResponse({"error": f"拒绝跨站请求，Origin: {origin}"}, status_code=403)
-    return await call_next(request)
+
+    resp = await call_next(request)
+    # 前端是本机开发用的，改完希望刷新就生效。但 Starlette 的静态文件不带
+    # Cache-Control，浏览器会按 Last-Modified 猜一个新鲜期（约为文件年龄的 10%），
+    # 于是「改完代码 → 重开页面」拿到的还是旧 JS，白白以为改错了地方。
+    # 所以前端一律 no-store。/images 除外：历史图又多又大，重复下载不划算。
+    if not request.url.path.startswith("/images"):
+        resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @app.get("/api/config")

@@ -5,6 +5,11 @@ const $ = (s) => document.querySelector(s);
 const state = {
   cfg: null,
   tab: 'txt2img',
+  // 两个标签页各存一份输入（提示词/模型/尺寸/文件名），互相不影响；模型和尺寸的初值在 boot 里按配置填
+  inputs: {
+    txt2img: { prompt: '', model: '', size: '', name: '' },
+    img2img: { prompt: '', model: '', size: '', name: '' },
+  },
   files: [],          // {id, file, url}
   tasks: new Map(),   // id -> task 对象
   histOffset: 0,
@@ -64,6 +69,11 @@ async function boot() {
 
   fillSelect($('#model'), c.models, c.default_model);
   fillSelect($('#size'), c.sizes, c.default_size);
+
+  // 两个标签页的模型/尺寸初值都取配置里的默认项；读回来是为了拿到真正被选中的那项
+  for (const k of ['txt2img', 'img2img']) {
+    state.inputs[k] = { prompt: '', model: $('#model').value, size: $('#size').value, name: '' };
+  }
 
   $('#submit').onclick = submit;
   $('#tab-txt2img').onclick = () => setTab('txt2img');
@@ -193,7 +203,20 @@ function remove(i) {
 }
 
 function setTab(tab) {
+  // 先把当前标签页的输入存回去，再换上目标标签页自己的，两边互不影响
+  const cur = state.inputs[state.tab];
+  cur.prompt = $('#prompt').value;
+  cur.model = $('#model').value;
+  cur.size = $('#size').value;
+  cur.name = $('#name').value;
+
   state.tab = tab;
+  const next = state.inputs[tab];
+  $('#prompt').value = next.prompt;
+  $('#model').value = next.model;
+  $('#size').value = next.size;
+  $('#name').value = next.name;
+
   $('#tab-txt2img').classList.toggle('on', tab === 'txt2img');
   $('#tab-img2img').classList.toggle('on', tab === 'img2img');
   $('#ref-field').hidden = tab === 'txt2img';
