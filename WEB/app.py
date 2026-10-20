@@ -85,13 +85,14 @@ except Exception:
 
 # 每项设置实际是从哪来的，只为了在界面和启动横幅上说清楚，免得用户
 # 「明明改了却不生效」却找不到原因。
-RUNTIME = {"output_root_source": "default", "key_source": "none"}
+RUNTIME = {"output_root_source": "default", "key_source": "none", "base_url_source": "default"}
 
 # 【必须在任何人改它们之前记下来】这两个是「回到默认」时的目标值。
 # a6.OUTPUT_ROOT 是可变的：_apply_settings 每次都可能重新赋值，等到那时再去
 # 推导默认值，拿到的会是被上一次设置改过的旧值。
 _DEFAULT_OUTPUT_ROOT = a6.OUTPUT_ROOT
 _ENV_KEY_AT_START = os.environ.get("A6API_KEY") or None
+_ENV_BASE_URL_AT_START = os.environ.get("A6_BASE_URL") or None
 
 
 def _apply_settings(s: dict) -> None:
@@ -127,8 +128,20 @@ def _apply_settings(s: dict) -> None:
         os.environ.pop("A6API_KEY", None)
         RUNTIME["key_source"] = "none"
 
+    # --- 接口地址 ---
+    if s.get("base_url"):
+        os.environ["A6_BASE_URL"] = s["base_url"]
+        RUNTIME["base_url_source"] = "settings"
+    elif _ENV_BASE_URL_AT_START:
+        os.environ["A6_BASE_URL"] = _ENV_BASE_URL_AT_START
+        RUNTIME["base_url_source"] = "env"
+    else:
+        os.environ.pop("A6_BASE_URL", None)
+        RUNTIME["base_url_source"] = "default"
+
     # 换没换 key 都清一次。代价近乎为零，省得再去比对，逻辑最简单。
     # 不清的话，用户改完 key 还是用缓存里的旧客户端发请求（见 a6.reset_clients）。
+    # base_url 也是在 _make_client 里固定的，所以换了地址同样必须清。
     a6.reset_clients()
 
 
@@ -362,6 +375,11 @@ def _mask(key: str) -> str:
     return f"{key[:8]}…{key[-4:]}" if len(key) >= 14 else "••••••"
 
 
+def _effective_base_url() -> str:
+    """a6 实际会用到的地址。和 a6._base_url() 同一套规则，只是这边不去调私有函数。"""
+    return os.environ.get("A6_BASE_URL") or a6.DEFAULT_BASE_URL
+
+
 def _settings_view() -> dict:
     s = settings_store.load()
     key = s.get("api_key") or os.environ.get("A6API_KEY") or ""
@@ -374,6 +392,10 @@ def _settings_view() -> dict:
         "api_key_masked": _mask(key),
         "has_api_key": bool(key),
         "key_source": RUNTIME["key_source"],
+        "base_url": s.get("base_url"),               # 盘上存的（null = 用默认）
+        "base_url_effective": _effective_base_url(),
+        "base_url_default": a6.DEFAULT_BASE_URL,
+        "base_url_source": RUNTIME["base_url_source"],
     }
 
 
@@ -409,6 +431,7 @@ class SettingsPatch(BaseModel):
     # 少了这一层，「只改目录、不动 key」和「把 key 删掉」就分不开了。
     output_dir: str | None = None
     api_key: str | None = None
+    base_url: str | None = None
 
 
 @app.post("/api/settings")
@@ -436,6 +459,16 @@ def api_save_settings(patch: SettingsPatch):
     if patch.api_key is not None:
         row["api_key"] = patch.api_key.strip() or None
 
+    if patch.base_url is not None:
+        raw = patch.base_url.strip()
+        if raw == "":
+            row["base_url"] = None                   # 显式清空 → 回默认地址
+        else:
+            try:
+                row["base_url"] = settings_store.normalize_base_url(raw)
+            except settings_store.InvalidSetting as e:
+                return JSONResponse({"error": str(e)}, status_code=400)
+
     # ---- 阶段二：落盘。失败就原样返回，内存里一点没动 ----
     try:
         settings_store.save(**row)
@@ -451,6 +484,12 @@ def api_save_settings(patch: SettingsPatch):
     _apply_settings(settings_store.load())
     view = _settings_view()
 
+    warnings = []
+    if row.get("output_dir") and settings_store.looks_like_unc(Path(row["output_dir"])):
+        warnings.append("这是网络路径，读写可能很慢或中途掉线。")
+    if row.get("base_url") and not row["base_url"].endswith("/v1"):
+        warnings.append("接口地址结尾不是 /v1。多数 OpenAI 兼容服务要求带 /v1，不对的话请求会 404。")
+
     return {
         "ok": True,
         "changed": {
@@ -458,12 +497,9 @@ def api_save_settings(patch: SettingsPatch):
             # 用户把路径改成一个等价写法时不该让前端白清一遍历史。
             "output_dir": before != str(a6.OUTPUT_ROOT),
             "api_key": "api_key" in row,
+            "base_url": "base_url" in row,
         },
-        "warning": (
-            "这是网络路径，读写可能很慢或中途掉线。"
-            if row.get("output_dir") and settings_store.looks_like_unc(Path(row["output_dir"]))
-            else None
-        ),
+        "warning": " ".join(warnings) or None,
         **view,
     }
 
@@ -697,6 +733,9 @@ if __name__ == "__main__":
     _key_src = {"settings": "设置", "env": "环境变量", "none": "未设置"}[RUNTIME["key_source"]]
     _key_tail = "（打开网页左下角「设置」填写）" if RUNTIME["key_source"] == "none" else ""
     print(f"  API key     →  {_key_src}{_key_tail}")
+    # 地址也打出来：用户的 key 会发到这个地址，让他随时看得见自己的 key 去了哪
+    _url_src = {"settings": "设置", "env": "环境变量", "default": "默认"}[RUNTIME["base_url_source"]]
+    print(f"  接口地址    →  {_effective_base_url()}   （来源：{_url_src}）")
     print(f"  并发上限    →  {MAX_WORKERS}（排队上限 {MAX_ACTIVE}）")
     if a6.MOCK:
         print("  ⚠ MOCK 模式：不会真的调接口，出的是本地画的假图")

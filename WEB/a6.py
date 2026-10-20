@@ -60,13 +60,24 @@ OUTPUT_ROOT = Path(
 )
 DEFAULT_NAME = "image"                   # 前端没填文件名时用这个
 
+# 接口地址。网页版可以在「设置」里改（app.py 会写进 A6_BASE_URL 环境变量）；
+# 脚本版仍然用它自己那份写死的地址，两边互不影响。
+#
+# 结尾带 /v1 是 OpenAI SDK 的约定：它会在这个地址后面接 /images/generations 之类，
+# 少了 /v1 就会打到错的路径上，而且报错往往是 404 而不是"地址写错了"，很难定位。
+DEFAULT_BASE_URL = "https://api.a6api.com/v1"
+
 MOCK = os.environ.get("A6_MOCK", "").strip().lower() not in ("", "0", "false", "no")
 
-# 模型线路。服务端后面挂着多个上游，-sunburst / -flare 互为备份：
+# 模型线路。服务端后面挂着多个上游，这三条互为备份：
 # 主线路 429/5xx/超时时自动换下一条，但内容策略类错误换线路也没用。
+#
+# 这个列表同时是【前端下拉框的候选项】和【失败时的重试顺序】：用户只能从这三条里选。
+# （2026-10-20 试过把它放开成「可以手打任意模型名」，后来撤回了。）
 MODEL_LINES = [
     "gpt-image-2.5-sunburst",
     "gpt-image-2.5-flare",
+    "gpt-image-2.5",
 ]
 DEFAULT_MODEL = MODEL_LINES[0]
 
@@ -181,12 +192,21 @@ def _require_api_key():
     return key
 
 
+def _base_url():
+    """接口地址。设置里改过的走环境变量，没改就用 DEFAULT_BASE_URL。
+
+    和 _require_api_key 一样，客户端层只认环境变量这一个来源 —— 由 app.py 负责
+    把设置里的值写进来。这样 a6.py 不需要知道设置存在哪、什么格式。
+    """
+    return (os.environ.get("A6_BASE_URL") or "").strip() or DEFAULT_BASE_URL
+
+
 def _make_client(field):
-    """—— 与 image2.5.py:85-98 相同，唯一差别是 max_retries=0。"""
+    """—— 与 image2.5.py:85-98 相同，唯一差别是 max_retries=0 和可配置的 base_url。"""
     return OpenAI(
         # key 只从环境变量读，见上面的 _require_api_key
         api_key=_require_api_key(),
-        base_url="https://api.a6api.com/v1",  # ← 结尾一定要带 /v1
+        base_url=_base_url(),
         # 不传 proxy：httpx 会自动读 Windows 系统代理（经 urllib 查注册表），
         # 代理软件开着就走代理，不需要在这里配。想强制直连就加 trust_env=False。
         http_client=FieldNameClient(

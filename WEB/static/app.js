@@ -15,6 +15,7 @@ const state = {
   settings: null,     // GET /api/settings 的结果
   keyDirty: false,    // 用户动过 key 输入框没有；没动过就不提交 api_key
   dirDirty: false,    // 同上，针对目录框
+  urlDirty: false,    // 同上，针对接口地址框
   histOffset: 0,
   histLimit: 30,
   histTotal: 0,
@@ -114,6 +115,8 @@ async function boot() {
   $('#set-reset-dir').onclick = () => { $('#set-output-dir').value = ''; state.dirDirty = true; };
   $('#set-output-dir').oninput = () => { state.dirDirty = true; };
   $('#set-api-key').oninput = () => { state.keyDirty = true; };
+  $('#set-base-url').oninput = () => { state.urlDirty = true; };
+  $('#set-reset-url').onclick = () => { $('#set-base-url').value = ''; state.urlDirty = true; };
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     closeSettings();
@@ -519,8 +522,15 @@ async function openSettings() {
     : '还没设置';
   $('#set-key-toggle').textContent = '显示';
 
+  // 接口地址：空 = 用默认。把生效值和默认值都写出来，用户才知道自己有没有改成功
+  $('#set-base-url').value = s.base_url || '';
+  $('#set-url-hint').textContent =
+    `当前生效：${s.base_url_effective}（来源：${SRC_TEXT[s.base_url_source] || s.base_url_source}）` +
+    ` · 默认：${s.base_url_default}`;
+
   state.keyDirty = false;
   state.dirDirty = false;
+  state.urlDirty = false;
   $('#settings-modal').classList.add('on');
 }
 
@@ -575,6 +585,7 @@ async function saveSettings() {
   const body = {};
   if (state.dirDirty) body.output_dir = $('#set-output-dir').value.trim();   // "" = 恢复默认
   if (state.keyDirty) body.api_key = $('#set-api-key').value;                // "" = 清空
+  if (state.urlDirty) body.base_url = $('#set-base-url').value.trim();       // "" = 恢复默认
 
   if (!Object.keys(body).length) { closeSettings(); return; }   // 什么都没改
 

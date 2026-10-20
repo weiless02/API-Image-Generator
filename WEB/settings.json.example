@@ -2,5 +2,6 @@
   "_说明": "这是模板。真正的 WEB/settings.json 由网页左下角的「设置」自动生成，被你 .gitignore 排除，不会上传。手改这个文件要保证是合法 JSON，改坏了服务仍能启动，但会按默认值跑并把坏文件改名成 settings.json.corrupt。",
   "version": 1,
   "output_dir": null,
-  "api_key": null
+  "api_key": null,
+  "base_url": null
 }

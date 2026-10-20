@@ -18,6 +18,7 @@ import logging
 import os
 import threading
 from pathlib import Path
+from urllib.parse import urlparse
 
 log = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ VERSION = 1
 #   "字符串"        → 设过，用这个值
 #   空字符串        → 由调用方翻译成「显式清空、回到默认」，落盘前会归一成 null
 # 少了这一层，「只改目录、不动 key」和「清空 key」就分不开了。
-DEFAULTS = {"version": VERSION, "output_dir": None, "api_key": None}
+DEFAULTS = {"version": VERSION, "output_dir": None, "api_key": None, "base_url": None}
 
 # 校验用的写探针文件名。挑一个不会被当成图片扫进历史的点开头的名字。
 _PROBE = ".a6-write-test"
@@ -72,7 +73,7 @@ def _load_locked() -> dict:
         return data
 
     # 逐字段校验类型。取值再奇怪也只当「没设过」，绝不往上抛。
-    for key in ("output_dir", "api_key"):
+    for key in ("output_dir", "api_key", "base_url"):
         v = raw.get(key)
         data[key] = v.strip() if isinstance(v, str) and v.strip() else None
     return data
@@ -167,6 +168,31 @@ def normalize_output_dir(raw: str, *, create: bool = True) -> Path:
             pass
 
     return p
+
+
+def normalize_base_url(raw: str) -> str:
+    """校验用户填的接口地址，返回去掉末尾斜杠的规范形式。
+
+    只做「看起来能不能发请求」这一级的检查，【不验证】这个地址背后真的有没有服务
+    —— 那得真发一次请求才知道，而这里每发一次都可能产生费用。
+    地址填错的后果会在第一次生图时以错误显示在任务卡片上。
+    """
+    s = (raw or "").strip().strip('"').strip("'").rstrip("/")
+    if not s:
+        raise InvalidSetting("接口地址不能为空")
+
+    try:
+        p = urlparse(s)
+    except Exception as e:
+        raise InvalidSetting(f"接口地址看不懂：{s}") from e
+
+    if p.scheme not in ("http", "https"):
+        raise InvalidSetting(
+            "接口地址要以 http:// 或 https:// 开头，比如 https://api.example.com/v1"
+        )
+    if not p.netloc:
+        raise InvalidSetting(f"接口地址里缺少主机名：{s}")
+    return s
 
 
 def looks_like_unc(p: Path) -> bool:

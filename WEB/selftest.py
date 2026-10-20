@@ -373,6 +373,42 @@ def _():
         assert not (got / ".a6-write-test").exists(), "写探针没有清理掉"
 
 
+@check("normalize_base_url 只放行 http/https 的完整地址，并去掉末尾斜杠")
+def _():
+    import settings_store as ss
+
+    assert ss.normalize_base_url("https://api.example.com/v1") == "https://api.example.com/v1"
+    # 用户从别处复制常带首尾空格 / 引号 / 末尾斜杠，这些都要能容忍
+    assert ss.normalize_base_url("  https://api.example.com/v1/  ") == "https://api.example.com/v1"
+    assert ss.normalize_base_url('"http://127.0.0.1:8000/v1"') == "http://127.0.0.1:8000/v1"
+
+    for bad in ["", "   ", "api.example.com/v1", "ftp://x/v1", "https://", "hello", "//x/v1"]:
+        try:
+            ss.normalize_base_url(bad)
+        except ss.InvalidSetting:
+            pass
+        else:
+            raise AssertionError(f"{bad!r} 本该被拒")
+
+
+@check("a6 的接口地址能被 A6_BASE_URL 覆盖，清空后回默认")
+def _():
+    import os
+
+    real = os.environ.pop("A6_BASE_URL", None)
+    try:
+        assert a6._base_url() == a6.DEFAULT_BASE_URL, "没设环境变量时应当用默认地址"
+        os.environ["A6_BASE_URL"] = "  https://example.com/v9  "
+        # 首尾空格要被吃掉，否则会拼出带空格的 URL
+        assert a6._base_url() == "https://example.com/v9", a6._base_url()
+        os.environ["A6_BASE_URL"] = "   "
+        assert a6._base_url() == a6.DEFAULT_BASE_URL, "空白应当视为没设"
+    finally:
+        os.environ.pop("A6_BASE_URL", None)
+        if real is not None:
+            os.environ["A6_BASE_URL"] = real
+
+
 @check("reset_clients 清空缓存，且不关闭别人正用着的客户端")
 def _():
     class _Fake:
