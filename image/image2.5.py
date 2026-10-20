@@ -14,7 +14,11 @@ SCRIPT_T0 = time.perf_counter()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 # ==================== 配置区：平时只改这里 ====================
-BASE_DIR = r"D:\PyCharm 2025.3.2\P5\image"
+# 脚本自己所在的目录。用 __file__ 推导而不是写死绝对路径：
+# 整个项目文件夹搬到哪都能跑，也不依赖「当前工作目录」
+# （PyCharm 里运行的 cwd 和双击运行的 cwd 未必相同）。
+# 输出落在它下面的 aipicture\年月日\，参考图也从这里找。
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 参考图文件名，按顺序填 —— 顺序会影响模型对「图 1 / 图 2」的理解
 INPUT_IMAGES = [
