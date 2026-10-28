@@ -1,142 +1,330 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark" data-ef-variant="nightshift">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>生图</title>
+<title>生图控制工作台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira:wdth,wght@50..125,400..800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
 </head>
-<body>
+<body class="ef-contours">
 
-<div class="app">
+<!-- 顶部三色标识带 -->
+<div class="ef-tri" aria-hidden="true">
+  <i></i><i></i><i></i>
+</div>
 
-  <!-- ==================== 左列：输入 + 任务 ==================== -->
-  <div class="col">
+<div class="app" id="app-root">
 
-    <div class="panel">
-      <div class="top">
-        <h1>生图</h1>
-        <span class="pill" id="mock-pill" hidden>MOCK</span>
-        <span class="pill busy" id="busy-pill" hidden></span>
+  <!-- ==================== 左列：侧边控制台 ==================== -->
+  <aside class="col col-sidebar" id="col-sidebar">
+
+    <!-- 顶部终端标题与状态栏 -->
+    <header class="panel panel-header">
+      <div class="brand">
+        <div class="brand-tag">生图</div>
+        <div class="brand-text">
+          <div class="ef-eyebrow">控制终端</div>
+          <h1>AI 图像生成工作台</h1>
+        </div>
       </div>
-    </div>
-
-    <div class="panel">
-      <div class="tabs">
-        <button id="tab-txt2img" class="on" type="button">文生图</button>
-        <button id="tab-img2img" type="button">图生图</button>
-      </div>
-    </div>
-
-    <div class="panel scroll" style="flex:1">
-
-      <label class="field" id="ref-field">
-        <span>参考图（图生图用，顺序会影响模型对「图 1 / 图 2」的理解）</span>
-        <div id="drop" class="drop">拖图片进来，或点这里选择（可多选）</div>
-        <input id="file-input" type="file" accept="image/*" multiple hidden>
-      </label>
-
-      <div class="thumbs" id="thumbs"></div>
-
-      <label class="field">
-        <span>提示词</span>
-        <textarea id="prompt" placeholder=""></textarea>
-      </label>
-
-      <div class="row">
-        <label class="field">
-          <span>模型线路</span>
-          <select id="model"></select>
-        </label>
-        <label class="field">
-          <span>尺寸</span>
-          <select id="size"></select>
-        </label>
-      </div>
-
-      <label class="field">
-        <span>输出文件名（可留空；同名会自动加序号，不会覆盖）</span>
-        <input id="name" type="text" placeholder="image">
-      </label>
-
-      <button class="primary" id="submit" type="button">生成</button>
-      <div id="form-err" class="err" hidden style="margin-top:10px"></div>
-
-    </div>
-
-    <div class="panel foot">
-      <button class="ghost" id="btn-settings" type="button">⚙ 设置</button>
-      <span class="hint" id="foot-hint" hidden></span>
-    </div>
-  </div>
-
-  <!-- ==================== 右列：任务 + 历史 ==================== -->
-  <div class="col">
-
-    <div class="panel scroll" id="tasks-panel" style="flex:1 1 55%">
-      <div class="sect-title"><span>任务</span><button class="ghost" id="clear-tasks" type="button">清空已结束</button></div>
-      <div id="tasks"><div class="empty">还没有任务</div></div>
-    </div>
-
-    <div class="panel scroll" style="flex:1 1 45%">
-      <div class="sect-title">
-        <span>历史</span>
-        <span style="display:flex;gap:6px">
-          <button class="ghost" id="hist-more" type="button" hidden>加载更多</button>
-          <button class="ghost" id="hist-reload" type="button">刷新</button>
+      <div class="status-tags">
+        <span class="ef-state is-alert" id="mock-pill" hidden>模拟模式</span>
+        <span class="ef-state" id="busy-pill" hidden>
+          <span class="busy-dot"></span>
+          <span id="busy-text">0 进行中</span>
         </span>
       </div>
-      <div class="hist" id="hist"></div>
-      <div class="empty" id="hist-empty" hidden>还没有图</div>
+    </header>
+
+    <!-- 模式切换：文生图 / 图生图 -->
+    <div class="panel panel-tabs">
+      <div class="tabs">
+        <button id="tab-txt2img" class="tab-btn on" type="button">
+          <span class="tab-label">文生图</span>
+        </button>
+        <button id="tab-img2img" class="tab-btn" type="button">
+          <span class="tab-label">图生图</span>
+        </button>
+      </div>
     </div>
 
+    <!-- 主表单参数录入区 -->
+    <main class="panel panel-form scroll">
+
+      <!-- 参考图区域（图生图） -->
+      <section class="field-group" id="ref-field">
+        <div class="field-label-row">
+          <span class="ef-eyebrow">参考图片</span>
+          <span class="field-caption">模型按顺序识别（图 1 / 图 2）</span>
+        </div>
+        <div id="drop" class="drop-zone">
+          <div class="drop-crosshair" aria-hidden="true">+</div>
+          <p class="drop-main-text">拖图片进来，或点击选择</p>
+          <span class="drop-sub-text">支持常见图片格式，可多选并上下调序</span>
+        </div>
+        <input id="file-input" type="file" accept="image/*" multiple hidden>
+        <div class="thumbs" id="thumbs"></div>
+      </section>
+
+      <!-- 提示词输入 -->
+      <div class="field">
+        <div class="field-label-row">
+          <label class="ef-eyebrow" for="prompt">提示词</label>
+          <span class="field-caption">按 Ctrl + Enter 快速生成</span>
+        </div>
+        <div class="textarea-wrap">
+          <textarea id="prompt" placeholder="描述你希望生成的画面细节、主体风格、构图与环境光影..."></textarea>
+          <div class="corner-bracket bottom-right"></div>
+        </div>
+      </div>
+
+      <!-- 参数选择：模型与尺寸 -->
+      <div class="row">
+        <div class="field">
+          <div class="field-label-row">
+            <label class="ef-eyebrow" for="model">模型线路</label>
+          </div>
+          <div class="select-wrap">
+            <select id="model"></select>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-label-row">
+            <label class="ef-eyebrow" for="size">生成尺寸</label>
+          </div>
+          <div class="select-wrap">
+            <select id="size"></select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 输出文件命名 -->
+      <div class="field">
+        <div class="field-label-row">
+          <label class="ef-eyebrow" for="name">输出文件名</label>
+          <span class="field-caption">留空默认 image；同名自动加序号</span>
+        </div>
+        <input id="name" type="text" placeholder="image">
+      </div>
+
+      <!-- 执行主按钮与报错 -->
+      <div class="action-wrap">
+        <button class="ef-btn ef-btn-primary" id="submit" type="button">
+          <span class="btn-wipe" aria-hidden="true"></span>
+          <span class="btn-text">立即生成</span>
+        </button>
+        <div id="form-err" class="ef-notice" hidden></div>
+      </div>
+
+    </main>
+
+    <!-- 底部状态与设置 -->
+    <footer class="panel foot">
+      <button class="ef-btn ef-btn-quiet btn-settings" id="btn-settings" type="button">
+        <span class="btn-wipe" aria-hidden="true"></span>
+        <span class="btn-text">设置</span>
+      </button>
+
+      <!-- 快速主题切换小按钮 -->
+      <button class="ef-btn ef-btn-quiet btn-quick-theme" id="btn-quick-theme" type="button" title="切换亮暗主题">
+        <span class="btn-wipe" aria-hidden="true"></span>
+        <span class="theme-icon sun-icon">亮色 (冷库)</span>
+        <span class="theme-icon moon-icon">暗色 (夜班)</span>
+      </button>
+
+      <span class="hint foot-hint" id="foot-hint" hidden></span>
+    </footer>
+  </aside>
+
+  <!-- ==================== 左右拖拽调节条 ==================== -->
+  <div class="resizer resizer-horizontal" id="resizer-cols" title="左右拖动调整宽度，双击复位">
+    <div class="resizer-line"></div>
+    <div class="resizer-handle"></div>
   </div>
+
+  <!-- ==================== 右列：任务面板 + 画廊相册 ==================== -->
+  <section class="col col-main" id="col-main">
+
+    <!-- 任务流水线面板 -->
+    <div class="panel scroll tasks-panel" id="tasks-panel">
+      <div class="sect-title">
+        <div class="sect-title-left">
+          <span class="ef-eyebrow">进行与排队</span>
+          <span class="sect-name">运行任务</span>
+          <span class="sect-badge" id="tasks-count" hidden>0</span>
+        </div>
+        <button class="ef-btn ef-btn-quiet ghost-sm" id="clear-tasks" type="button">
+          <span class="btn-text">清空已完结任务</span>
+        </button>
+      </div>
+      <div id="tasks" class="tasks-container">
+        <div class="empty">还没有运行中的任务</div>
+      </div>
+    </div>
+
+    <!-- 上下拖拽调节条 -->
+    <div class="resizer resizer-vertical" id="resizer-rows" title="上下拖动调整高度占比，双击复位">
+      <div class="resizer-line"></div>
+      <div class="resizer-handle"></div>
+    </div>
+
+    <!-- 历史画廊面板 -->
+    <div class="panel scroll hist-panel" id="hist-panel">
+      <div class="sect-title">
+        <div class="sect-title-left">
+          <span class="ef-eyebrow">历史相册</span>
+          <span class="sect-name">生成历史</span>
+          <span class="ef-field" id="hist-stat"></span>
+        </div>
+        <div class="sect-actions">
+          <button class="ef-btn ef-btn-quiet ghost-sm" id="hist-more" type="button" hidden>
+            <span class="btn-text">加载更多</span>
+          </button>
+          <button class="ef-btn ef-btn-quiet ghost-sm" id="hist-reload" type="button">
+            <span class="btn-text">刷新目录</span>
+          </button>
+        </div>
+      </div>
+      <div class="hist" id="hist"></div>
+      <div class="empty" id="hist-empty" hidden>暂无图片历史</div>
+    </div>
+
+  </section>
 </div>
 
-<div class="modal" id="settings-modal">
+<!-- ==================== 设置模态弹窗 ==================== -->
+<div class="modal" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
   <div class="modal-box">
     <div class="modal-head">
-      <span>设置</span>
-      <button class="ghost" id="settings-close" type="button">✕</button>
+      <div class="modal-title-wrap">
+        <div class="ef-eyebrow">全局设置</div>
+        <h2 id="settings-title">系统参数设置</h2>
+      </div>
+      <button class="ef-btn ef-btn-quiet btn-close" id="settings-close" type="button" aria-label="关闭">
+        <span class="btn-text">✕</span>
+      </button>
     </div>
 
-    <label class="field">
-      <span>图片保存位置</span>
-      <div class="row tight">
-        <input id="set-output-dir" type="text" spellcheck="false" placeholder="留空 = 用默认目录">
-        <button class="ghost" id="set-browse" type="button">浏览…</button>
+    <div class="modal-body">
+      <!-- 风格主题选择：浅色 coldstore / 深色 nightshift / 跟随系统 -->
+      <div class="field">
+        <div class="field-label-row">
+          <label class="ef-eyebrow">界面色彩主题</label>
+          <span class="field-caption">冷库（浅色）/ 夜班（深色）</span>
+        </div>
+        <div class="theme-options">
+          <label class="theme-option">
+            <input type="radio" name="app-theme" value="dark">
+            <span class="theme-card">
+              <span class="theme-dot dot-night"></span>
+              <span class="theme-name">暗色 · 夜班</span>
+              <span class="theme-desc">暗黑基底 · 荧光柠檬绿切角</span>
+            </span>
+          </label>
+          <label class="theme-option">
+            <input type="radio" name="app-theme" value="light">
+            <span class="theme-card">
+              <span class="theme-dot dot-cold"></span>
+              <span class="theme-name">亮色 · 冷库</span>
+              <span class="theme-desc">青灰纸面 · 冷蓝冰晶网格</span>
+            </span>
+          </label>
+          <label class="theme-option">
+            <input type="radio" name="app-theme" value="system">
+            <span class="theme-card">
+              <span class="theme-dot dot-auto"></span>
+              <span class="theme-name">跟随系统</span>
+              <span class="theme-desc">跟随操作系统外观自动切换</span>
+            </span>
+          </label>
+        </div>
       </div>
-      <span class="hint" id="set-output-hint"></span>
-    </label>
 
-    <label class="field">
-      <span>API key</span>
-      <div class="row tight">
-        <input id="set-api-key" type="password" autocomplete="off" spellcheck="false">
-        <button class="ghost" id="set-key-toggle" type="button">显示</button>
+      <!-- 图片保存位置 -->
+      <div class="field">
+        <div class="field-label-row">
+          <label class="ef-eyebrow" for="set-output-dir">图片保存位置</label>
+        </div>
+        <div class="row tight">
+          <input id="set-output-dir" type="text" spellcheck="false" placeholder="留空 = 用默认目录">
+          <button class="ef-btn ef-btn-quiet" id="set-browse" type="button">
+            <span class="btn-text">浏览…</span>
+          </button>
+        </div>
+        <span class="hint" id="set-output-hint"></span>
       </div>
-      <span class="hint">存在 <code id="set-path"></code>，不进仓库。</span>
-    </label>
 
-    <label class="field">
-      <span>接口地址（base_url）</span>
-      <div class="row tight">
-        <input id="set-base-url" type="text" spellcheck="false" placeholder="留空 = 用默认地址">
-        <button class="ghost" id="set-reset-url" type="button">恢复默认</button>
+      <!-- API Key -->
+      <div class="field">
+        <div class="field-label-row">
+          <label class="ef-eyebrow" for="set-api-key">API Key</label>
+        </div>
+        <div class="row tight">
+          <input id="set-api-key" type="password" autocomplete="off" spellcheck="false">
+          <button class="ef-btn ef-btn-quiet" id="set-key-toggle" type="button">
+            <span class="btn-text">显示明文</span>
+          </button>
+        </div>
+        <span class="hint">存在本地配置文件 <code id="set-path"></code>，不提交版本库。</span>
       </div>
-      <span class="hint" id="set-url-hint"></span>
-    </label>
 
-    <div class="err" id="settings-err" hidden></div>
+      <!-- 接口地址 -->
+      <div class="field">
+        <div class="field-label-row">
+          <label class="ef-eyebrow" for="set-base-url">接口地址 (base_url)</label>
+        </div>
+        <div class="row tight">
+          <input id="set-base-url" type="text" spellcheck="false" placeholder="留空 = 默认接口地址">
+          <button class="ef-btn ef-btn-quiet" id="set-reset-url" type="button">
+            <span class="btn-text">恢复默认</span>
+          </button>
+        </div>
+        <span class="hint" id="set-url-hint"></span>
+      </div>
 
-    <div class="row tight" style="justify-content:flex-end;margin-top:14px">
-      <button class="ghost" id="set-reset-dir" type="button">恢复默认目录</button>
-      <button class="primary" id="settings-save" type="button">保存</button>
+      <div class="ef-notice" id="settings-err" hidden></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="ef-btn ef-btn-quiet" id="set-reset-dir" type="button">
+        <span class="btn-text">恢复默认目录</span>
+      </button>
+      <div class="modal-footer-right">
+        <button class="ef-btn ef-btn-quiet" id="settings-cancel" type="button">
+          <span class="btn-text">取消</span>
+        </button>
+        <button class="ef-btn ef-btn-primary" id="settings-save" type="button">
+          <span class="btn-wipe" aria-hidden="true"></span>
+          <span class="btn-text">保存设置</span>
+        </button>
+      </div>
     </div>
   </div>
 </div>
 
-<div class="lightbox" id="lightbox"><img id="lightbox-img" alt=""></div>
+<!-- ==================== 浮层预览 Lightbox ==================== -->
+<div class="lightbox" id="lightbox">
+  <div class="lightbox-toolbar">
+    <div class="lightbox-info-wrap">
+      <span class="ef-eyebrow">大图预览</span>
+      <span class="lightbox-info" id="lightbox-info"></span>
+    </div>
+    <div class="lightbox-btns">
+      <a class="ef-btn ef-btn-quiet lightbox-btn" id="lightbox-open-raw" href="#" target="_blank" download>
+        <span class="btn-text">下载大图</span>
+      </a>
+      <button class="ef-btn ef-btn-quiet lightbox-btn" id="lightbox-close" type="button">
+        <span class="btn-text">关闭 (Esc)</span>
+      </button>
+    </div>
+  </div>
+  <div class="lightbox-content">
+    <img id="lightbox-img" alt="">
+  </div>
+</div>
 
 <script src="/app.js"></script>
 </body>

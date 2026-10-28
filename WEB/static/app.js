@@ -1,11 +1,11 @@
-/* 生图网页版前端。原生 JS，无构建步骤。 */
+/* 生图网页版前端。原生 JS，无构建步骤。遵循 Endfield UI 规范。 */
 
 const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
 
 const state = {
   cfg: null,
   tab: 'txt2img',
-  // 两个标签页各存一份输入（提示词/模型/尺寸/文件名），互相不影响；模型和尺寸的初值在 boot 里按配置填
   inputs: {
     txt2img: { prompt: '', model: '', size: '', name: '' },
     img2img: { prompt: '', model: '', size: '', name: '' },
@@ -13,21 +13,173 @@ const state = {
   files: [],          // {id, file, url}
   tasks: new Map(),   // id -> task 对象
   settings: null,     // GET /api/settings 的结果
-  keyDirty: false,    // 用户动过 key 输入框没有；没动过就不提交 api_key
-  dirDirty: false,    // 同上，针对目录框
-  urlDirty: false,    // 同上，针对接口地址框
+  keyDirty: false,
+  dirDirty: false,
+  urlDirty: false,
   histOffset: 0,
   histLimit: 30,
   histTotal: 0,
+  theme: 'dark',      // 'dark' (nightshift) | 'light' (coldstore) | 'system'
 };
 
-/* ------------------------------------------------------------------ 工具 */
+/* ------------------------------------------------------------------ Endfield 主题切换 */
+
+function initTheme() {
+  const saved = localStorage.getItem('a6_theme_preference') || 'dark';
+  applyTheme(saved, false);
+
+  const media = window.matchMedia('(prefers-color-scheme: dark)');
+  media.addEventListener('change', () => {
+    if (state.theme === 'system') {
+      applyTheme('system', false);
+    }
+  });
+
+  const quickBtn = $('#btn-quick-theme');
+  if (quickBtn) {
+    quickBtn.onclick = () => {
+      const currentEffective = document.documentElement.dataset.theme;
+      const nextTheme = currentEffective === 'dark' ? 'light' : 'dark';
+      applyTheme(nextTheme, true);
+    };
+  }
+
+  $$('input[name="app-theme"]').forEach((radio) => {
+    radio.onchange = (e) => {
+      if (e.target.checked) {
+        applyTheme(e.target.value, true);
+      }
+    };
+  });
+}
+
+function applyTheme(pref, save = true) {
+  state.theme = pref;
+  let effective = pref;
+  if (pref === 'system') {
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    effective = isDark ? 'dark' : 'light';
+  }
+
+  // 浅色对应 coldstore，深色对应 nightshift
+  const variant = effective === 'light' ? 'coldstore' : 'nightshift';
+
+  document.documentElement.dataset.theme = effective;
+  document.documentElement.dataset.efVariant = variant;
+
+  const targetRadio = $(`input[name="app-theme"][value="${pref}"]`);
+  if (targetRadio) targetRadio.checked = true;
+
+  if (save) {
+    localStorage.setItem('a6_theme_preference', pref);
+  }
+}
+
+/* ------------------------------------------------------------------ 模块拖拽调节系统 */
+
+function initResizers() {
+  // 1. 左右拖拽分割线（侧边栏宽度 300px - 1300px）
+  const resizerCols = $('#resizer-cols');
+  const sidebar = $('#col-sidebar');
+  if (resizerCols && sidebar) {
+    const savedWidth = localStorage.getItem('a6_sidebar_width');
+    if (savedWidth && window.innerWidth > 900) {
+      sidebar.style.width = savedWidth + 'px';
+    }
+
+    let startX = 0;
+    let startW = 0;
+
+    const onMouseMoveH = (e) => {
+      const delta = e.clientX - startX;
+      let newW = startW + delta;
+      const maxW = Math.max(300, window.innerWidth - 320);
+      newW = Math.min(Math.max(newW, 300), Math.min(maxW, 1300));
+      sidebar.style.width = newW + 'px';
+      localStorage.setItem('a6_sidebar_width', Math.round(newW));
+    };
+
+    const onMouseUpH = () => {
+      document.body.classList.remove('resizing-h');
+      window.removeEventListener('mousemove', onMouseMoveH);
+      window.removeEventListener('mouseup', onMouseUpH);
+    };
+
+    resizerCols.addEventListener('mousedown', (e) => {
+      if (window.innerWidth <= 900) return;
+      startX = e.clientX;
+      startW = sidebar.getBoundingClientRect().width;
+      document.body.classList.add('resizing-h');
+      window.addEventListener('mousemove', onMouseMoveH);
+      window.addEventListener('mouseup', onMouseUpH);
+    });
+
+    resizerCols.addEventListener('dblclick', () => {
+      sidebar.style.width = '440px';
+      localStorage.removeItem('a6_sidebar_width');
+    });
+  }
+
+  // 2. 上下拖拽分割线（任务面板 vs 历史面板）
+  const resizerRows = $('#resizer-rows');
+  const tasksPanel = $('#tasks-panel');
+  const histPanel = $('#hist-panel');
+  const colMain = $('#col-main');
+
+  if (resizerRows && tasksPanel && histPanel && colMain) {
+    const savedRatio = localStorage.getItem('a6_tasks_ratio');
+    if (savedRatio) {
+      tasksPanel.style.flex = `${savedRatio} 1 0%`;
+      histPanel.style.flex = `${100 - savedRatio} 1 0%`;
+    }
+
+    let startY = 0;
+    let startTasksH = 0;
+    let totalH = 0;
+
+    const onMouseMoveV = (e) => {
+      const delta = e.clientY - startY;
+      const newTasksH = startTasksH + delta;
+      const minH = 100;
+      const maxH = totalH - minH;
+      const clampedH = Math.min(Math.max(newTasksH, minH), maxH);
+      const ratio = (clampedH / totalH) * 100;
+
+      tasksPanel.style.flex = `${ratio.toFixed(2)} 1 0%`;
+      histPanel.style.flex = `${(100 - ratio).toFixed(2)} 1 0%`;
+      localStorage.setItem('a6_tasks_ratio', ratio.toFixed(2));
+    };
+
+    const onMouseUpV = () => {
+      document.body.classList.remove('resizing-v');
+      window.removeEventListener('mousemove', onMouseMoveV);
+      window.removeEventListener('mouseup', onMouseUpV);
+    };
+
+    resizerRows.addEventListener('mousedown', (e) => {
+      startY = e.clientY;
+      startTasksH = tasksPanel.getBoundingClientRect().height;
+      totalH = colMain.getBoundingClientRect().height - 14;
+      document.body.classList.add('resizing-v');
+      window.addEventListener('mousemove', onMouseMoveV);
+      window.addEventListener('mouseup', onMouseUpV);
+    });
+
+    resizerRows.addEventListener('dblclick', () => {
+      tasksPanel.style.flex = '1 1 50%';
+      histPanel.style.flex = '1 1 50%';
+      localStorage.removeItem('a6_tasks_ratio');
+    });
+  }
+}
+
+/* ------------------------------------------------------------------ 工具函数 */
 
 const fmtDur = (s) => {
   if (s == null) return '';
   s = Math.max(0, Math.round(s));
-  if (s < 60) return s + 's';
-  return Math.floor(s / 60) + 'm' + String(s % 60).padStart(2, '0') + 's';
+  if (s < 60) return s + '秒';
+  return Math.floor(s / 60) + '分' + String(s % 60).padStart(2, '0') + '秒';
 };
 
 const fmtSize = (b) => {
@@ -45,9 +197,9 @@ const fmtTime = (ts) => {
 const STATUS_TEXT = {
   queued: '排队中',
   running: '生成中',
-  done: '完成',
+  done: '已完成',
   error: '失败',
-  cancelled: '已作废',
+  cancelled: '已取消',
 };
 
 async function api(url, opts) {
@@ -61,10 +213,13 @@ async function api(url, opts) {
 /* ---------------------------------------------------------------- 初始化 */
 
 async function boot() {
+  initTheme();
+  initResizers();
+
   try {
     state.cfg = await api('/api/config');
   } catch (e) {
-    alert('拿不到配置，后端可能没起来：' + e.message);
+    alert('拿不到配置，后端可能未启动：' + e.message);
     return;
   }
 
@@ -74,7 +229,6 @@ async function boot() {
   fillSelect($('#model'), c.models, c.default_model);
   fillSelect($('#size'), c.sizes, c.default_size);
 
-  // 两个标签页的模型/尺寸初值都取配置里的默认项；读回来是为了拿到真正被选中的那项
   for (const k of ['txt2img', 'img2img']) {
     state.inputs[k] = { prompt: '', model: $('#model').value, size: $('#size').value, name: '' };
   }
@@ -103,11 +257,19 @@ async function boot() {
   $('#hist-reload').onclick = () => loadHistory(true);
   $('#hist-more').onclick = () => loadHistory(false);
 
-  $('#lightbox').onclick = () => $('#lightbox').classList.remove('on');
+  const closeLightbox = () => $('#lightbox').classList.remove('on');
+  $('#lightbox-close').onclick = closeLightbox;
+  $('#lightbox').onclick = (e) => {
+    if (e.target.id === 'lightbox' || e.target.classList.contains('lightbox-content')) {
+      closeLightbox();
+    }
+  };
 
   // ---- 设置面板 ----
   $('#btn-settings').onclick = openSettings;
   $('#settings-close').onclick = closeSettings;
+  const cancelBtn = $('#settings-cancel');
+  if (cancelBtn) cancelBtn.onclick = closeSettings;
   $('#settings-modal').onclick = (e) => { if (e.target.id === 'settings-modal') closeSettings(); };
   $('#settings-save').onclick = saveSettings;
   $('#set-browse').onclick = browseFolder;
@@ -117,26 +279,24 @@ async function boot() {
   $('#set-api-key').oninput = () => { state.keyDirty = true; };
   $('#set-base-url').oninput = () => { state.urlDirty = true; };
   $('#set-reset-url').onclick = () => { $('#set-base-url').value = ''; state.urlDirty = true; };
+
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     closeSettings();
-    $('#lightbox').classList.remove('on');
+    closeLightbox();
   });
 
-  // 这台机器弹不出原生对话框时，把「浏览…」藏掉，只留手输路径
   if (c.can_pick_folder === false) $('#set-browse').hidden = true;
 
-  // 没配 key 首页就给个提示，否则第一次用的人点了生成才知道要配
   if (!c.has_api_key) {
     const h = $('#foot-hint');
     h.hidden = false;
-    h.textContent = '还没配置 API key，点「设置」填一个';
+    h.textContent = 'API key 尚未配置，请在「设置」中填入';
   }
 
   setTab('txt2img');
   await loadHistory(true);
 
-  // 服务可能跑着还在进行的任务，恢复一下
   try {
     const r = await api('/api/tasks');
     r.items.forEach(upsertTask);
@@ -166,7 +326,7 @@ function addFiles(list) {
   for (const f of list) {
     if (!f.type.startsWith('image/')) continue;
     if (state.files.length >= max) {
-      formErr(`最多 ${max} 张参考图`);
+      formErr(`最多添加 ${max} 张参考图`);
       break;
     }
     state.files.push({ id: ++fileSeq, file: f, url: URL.createObjectURL(f) });
@@ -192,7 +352,6 @@ function renderThumbs() {
 
     const ops = document.createElement('div');
     ops.className = 'ops';
-    // 顺序有意义：模型按顺序理解「图 1 / 图 2」，所以要有上移/下移
     ops.append(
       mkOp('▲', i === 0, () => move(i, -1)),
       mkOp('▼', i === state.files.length - 1, () => move(i, 1)),
@@ -227,7 +386,6 @@ function remove(i) {
 }
 
 function setTab(tab) {
-  // 先把当前标签页的输入存回去，再换上目标标签页自己的，两边互不影响
   const cur = state.inputs[state.tab];
   cur.prompt = $('#prompt').value;
   cur.model = $('#model').value;
@@ -268,14 +426,14 @@ async function submit() {
   fd.append('name', $('#name').value);
 
   if (state.tab === 'img2img') {
-    if (!state.files.length) return formErr('图生图至少要有一张参考图');
-    // 同名 key 重复 append，FastAPI 才会映射成 list[UploadFile]
+    if (!state.files.length) return formErr('图生图至少需要选择 1 张参考图');
     for (const it of state.files) fd.append('files', it.file, it.file.name);
   }
 
   const btn = $('#submit');
   btn.disabled = true;
-  btn.textContent = '提交中…';
+  const originalHtml = btn.innerHTML;
+  btn.innerHTML = `<span class="spin"></span> <span class="btn-text">正在生成中…</span>`;
   try {
     const r = await api('/api/generate', { method: 'POST', body: fd });
     upsertTask(r.task);
@@ -283,7 +441,7 @@ async function submit() {
     formErr(e.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = '生成';
+    btn.innerHTML = originalHtml;
   }
 }
 
@@ -301,7 +459,6 @@ async function pollTasks() {
       upsertTask(fresh);
       if (fresh.status === 'done' && wasRunning !== 'done') loadHistory(true);
     } catch (e) {
-      // 404 一般是服务重启过，任务表在内存里所以丢了
       t.status = 'error';
       t.error = e.message;
       upsertTask(t);
@@ -328,11 +485,18 @@ function renderTaskEmpty() {
     if (!e) {
       e = document.createElement('div');
       e.className = 'empty';
-      e.textContent = '还没有任务';
+      e.textContent = '还没有运行中的任务';
       box.appendChild(e);
     }
   } else if (e) {
     e.remove();
+  }
+
+  const countBadge = $('#tasks-count');
+  if (countBadge) {
+    const total = state.tasks.size;
+    countBadge.textContent = total;
+    countBadge.hidden = total === 0;
   }
 }
 
@@ -341,13 +505,32 @@ function updateBusy() {
     .filter((t) => t.status === 'queued' || t.status === 'running').length;
   const p = $('#busy-pill');
   p.hidden = n === 0;
-  if (n) p.textContent = `${n} 个进行中`;
+  const txt = $('#busy-text');
+  if (txt) {
+    txt.textContent = `${n} 进行中`;
+  }
+}
+
+function openLightbox(url, name, sizeStr) {
+  const lb = $('#lightbox');
+  const img = $('#lightbox-img');
+  const info = $('#lightbox-info');
+  const rawBtn = $('#lightbox-open-raw');
+
+  img.src = url;
+  if (info) info.textContent = `${name || '生成图片'} ${sizeStr ? '· ' + sizeStr : ''}`;
+  if (rawBtn) {
+    rawBtn.href = url;
+    rawBtn.download = name || 'image.png';
+  }
+  lb.classList.add('on');
 }
 
 function buildCard(task) {
   const el = document.createElement('div');
   el.className = 'task';
   el.id = `task-${task.id}`;
+  el.dataset.status = task.status;
 
   const head = document.createElement('div');
   head.className = 'head';
@@ -363,12 +546,12 @@ function buildCard(task) {
 
   const model = document.createElement('span');
   model.dataset.role = 'model';
-  model.style.cssText = 'color:var(--fg-dim);font-size:11.5px';
+  model.className = 'ef-field';
 
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
-  cancelBtn.className = 'ghost';
-  cancelBtn.textContent = '取消';
+  cancelBtn.className = 'ef-btn ef-btn-quiet ghost-sm';
+  cancelBtn.innerHTML = '<span class="btn-text">取消任务</span>';
   cancelBtn.style.marginLeft = 'auto';
   cancelBtn.onclick = async () => {
     cancelBtn.disabled = true;
@@ -387,7 +570,7 @@ function buildCard(task) {
 
   const prompt = document.createElement('div');
   prompt.className = 'prompt';
-  prompt.textContent = task.prompt;      // 用 textContent，不拼 HTML
+  prompt.textContent = task.prompt;
 
   const bar = document.createElement('div');
   bar.className = 'bar';
@@ -395,7 +578,7 @@ function buildCard(task) {
   bar.appendChild(document.createElement('i'));
 
   const err = document.createElement('div');
-  err.className = 'err';
+  err.className = 'ef-notice';
   err.dataset.role = 'err';
   err.hidden = true;
 
@@ -410,6 +593,8 @@ function buildCard(task) {
 function updateCard(task) {
   const el = $(`#task-${task.id}`);
   if (!el) return;
+
+  el.dataset.status = task.status;
 
   el.querySelector('.kind').textContent =
     task.kind === 'img2img' ? `图生图 · ${task.ref_names.length} 张参考` : '文生图';
@@ -430,11 +615,11 @@ function updateCard(task) {
   }
 
   const timer = el.querySelector('[data-role=timer]');
-  timer.style.cssText = 'color:var(--fg-dim);font-size:11.5px';
+  timer.className = 'ef-field';
   timer.textContent = task.status === 'queued'
-    ? `已排队 ${fmtDur(task.queued_for)}`
+    ? `排队 ${fmtDur(task.queued_for)}`
     : task.status === 'running'
-      ? `已生成 ${fmtDur(task.elapsed)}`
+      ? `已耗时 ${fmtDur(task.elapsed)}`
       : fmtDur(task.elapsed);
 
   const model = el.querySelector('[data-role=model]');
@@ -444,14 +629,14 @@ function updateCard(task) {
 
   const busy = task.status === 'queued' || task.status === 'running';
   el.querySelector('[data-role=bar]').hidden = !busy;
-  el.querySelector('button.ghost').hidden = !busy;
+  const cancelBtn = el.querySelector('button.ef-btn');
+  if (cancelBtn) cancelBtn.hidden = !busy;
 
   const err = el.querySelector('[data-role=err]');
   err.hidden = !task.error;
   if (task.error) err.textContent = task.error;
 
   const out = el.querySelector('[data-role=out]');
-  // 只在数量变化时重建，避免每次轮询都重新加载图片造成闪烁
   if (out.childElementCount !== (task.images || []).length) {
     out.innerHTML = '';
     for (const im of task.images || []) {
@@ -464,8 +649,7 @@ function updateCard(task) {
       img.title = `${im.name} · ${fmtSize(im.size)} — 点开看大图`;
       img.onclick = (e) => {
         e.preventDefault();
-        $('#lightbox-img').src = im.url;
-        $('#lightbox').classList.add('on');
+        openLightbox(im.url, im.name, fmtSize(im.size));
       };
       a.appendChild(img);
       out.appendChild(a);
@@ -481,14 +665,14 @@ function tick() {
     const timer = el.querySelector('[data-role=timer]');
     const now = Date.now() / 1000;
     timer.textContent = t.status === 'queued'
-      ? `已排队 ${fmtDur(now - t.created)}`
-      : `已生成 ${fmtDur(t.started ? now - t.started : 0)}`;
+      ? `排队 ${fmtDur(now - t.created)}`
+      : `已耗时 ${fmtDur(t.started ? now - t.started : 0)}`;
   }
 }
 
 /* ---------------------------------------------------------------- 设置 */
 
-const SRC_TEXT = { settings: '设置', env: '环境变量', default: '默认', none: '未设置' };
+const SRC_TEXT = { settings: '设置文件', env: '环境变量', default: '默认设置', none: '未配置' };
 
 function settingsErr(msg) {
   const el = $('#settings-err');
@@ -501,32 +685,32 @@ async function openSettings() {
   try {
     state.settings = await api('/api/settings');
   } catch (e) {
-    alert('读不到设置：' + e.message);
+    alert('读取配置失败：' + e.message);
     return;
   }
   const s = state.settings;
 
-  $('#set-output-dir').value = s.output_dir || '';      // 空 = 用默认目录
+  const targetRadio = $(`input[name="app-theme"][value="${state.theme}"]`);
+  if (targetRadio) targetRadio.checked = true;
+
+  $('#set-output-dir').value = s.output_dir || '';
   $('#set-output-hint').textContent =
     `当前生效：${s.output_dir_effective}（来源：${SRC_TEXT[s.output_dir_source] || s.output_dir_source}）` +
-    `· 换目录不会动旧目录里的文件`;
+    ` · 更改保存目录不会移动原有旧文件`;
   $('#set-path').textContent = s.settings_path;
 
-  // key 一律回到「密码态 + 占位符」，【绝不把完整值塞进 DOM】。
-  // 想看完整值要显式点「显示」，那时才单独去后端取一次。
   const k = $('#set-api-key');
   k.type = 'password';
   k.value = '';
   k.placeholder = s.has_api_key
-    ? `已保存 ${s.api_key_masked}（点「显示」看完整值）`
-    : '还没设置';
-  $('#set-key-toggle').textContent = '显示';
+    ? `已保存 ${s.api_key_masked}（点击「显示明文」可查看完整值）`
+    : '还没配置 API key';
+  $('#set-key-toggle').querySelector('.btn-text').textContent = '显示明文';
 
-  // 接口地址：空 = 用默认。把生效值和默认值都写出来，用户才知道自己有没有改成功
   $('#set-base-url').value = s.base_url || '';
   $('#set-url-hint').textContent =
     `当前生效：${s.base_url_effective}（来源：${SRC_TEXT[s.base_url_source] || s.base_url_source}）` +
-    ` · 默认：${s.base_url_default}`;
+    ` · 默认地址：${s.base_url_default}`;
 
   state.keyDirty = false;
   state.dirDirty = false;
@@ -540,42 +724,40 @@ function closeSettings() {
 
 async function toggleKey() {
   const k = $('#set-api-key');
-  const btn = $('#set-key-toggle');
+  const btn = $('#set-key-toggle').querySelector('.btn-text');
 
-  if (k.type !== 'password') {          // 已经在明文态 → 藏回去
+  if (k.type !== 'password') {
     k.type = 'password';
-    btn.textContent = '显示';
+    btn.textContent = '显示明文';
     return;
   }
 
-  // 用户已经自己敲过内容了就别去覆盖他，只把 type 切过来
   if (!state.keyDirty) {
     try {
       const r = await api('/api/settings/api-key');
       k.value = r.api_key;
     } catch (e) {
-      settingsErr('取不到 key：' + e.message);
+      settingsErr('获取 API key 失败：' + e.message);
       return;
     }
   }
   k.type = 'text';
-  btn.textContent = '隐藏';
+  btn.textContent = '隐藏密文';
 }
 
 async function browseFolder() {
   const btn = $('#set-browse');
   btn.disabled = true;
-  btn.textContent = '选择中…';
+  btn.querySelector('.btn-text').textContent = '选择中…';
   try {
     const r = await api('/api/pick-folder?initial=' + encodeURIComponent($('#set-output-dir').value.trim()),
                         { method: 'POST' });
     if (r.ok) { $('#set-output-dir').value = r.path; state.dirDirty = true; }
-    // r.cancelled 就是用户点了取消，什么都不做，保留他已经输入的值
   } catch (e) {
-    settingsErr(e.message);             // 501 时后端给的就是「请手动输入路径」
+    settingsErr(e.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = '浏览…';
+    btn.querySelector('.btn-text').textContent = '浏览…';
   }
 }
 
@@ -583,16 +765,16 @@ async function saveSettings() {
   settingsErr('');
 
   const body = {};
-  if (state.dirDirty) body.output_dir = $('#set-output-dir').value.trim();   // "" = 恢复默认
-  if (state.keyDirty) body.api_key = $('#set-api-key').value;                // "" = 清空
-  if (state.urlDirty) body.base_url = $('#set-base-url').value.trim();       // "" = 恢复默认
+  if (state.dirDirty) body.output_dir = $('#set-output-dir').value.trim();
+  if (state.keyDirty) body.api_key = $('#set-api-key').value;
+  if (state.urlDirty) body.base_url = $('#set-base-url').value.trim();
 
-  if (!Object.keys(body).length) { closeSettings(); return; }   // 什么都没改
+  if (!Object.keys(body).length) { closeSettings(); return; }
 
   const running = [...state.tasks.values()]
     .filter((t) => t.status === 'queued' || t.status === 'running').length;
   if (running && body.output_dir !== undefined &&
-      !confirm(`还有 ${running} 个任务在跑。换目录后它们会存到新目录，旧目录里的文件不动。继续？`)) {
+      !confirm(`还有 ${running} 个任务正在运行。更改目录后新图会存入新路径，旧图不动。是否继续？`)) {
     return;
   }
 
@@ -611,7 +793,6 @@ async function saveSettings() {
     if (r.changed.output_dir) onOutputRootChanged();
     closeSettings();
   } catch (e) {
-    // 后端保证这时候当前生效的目录一个字都没动
     settingsErr(e.message);
   } finally {
     btn.disabled = false;
@@ -628,10 +809,6 @@ function dropFinishedTasks() {
   renderTaskEmpty();
 }
 
-// 换了输出目录之后：
-// 已结束的任务卡片上那些图指向旧目录，URL 是 "/images/日期/名字"，换根之后必然 404，
-// 所以连同卡片一起清掉；【正在跑的任务要留着】—— 它们此刻还没有图，等 done 的时候
-// save_image 读的是那一刻的 OUTPUT_ROOT（已经是新目录了），URL 天然指向新目录。
 function onOutputRootChanged() {
   dropFinishedTasks();
   loadHistory(true);
@@ -645,21 +822,36 @@ async function loadHistory(reset) {
   state.histTotal = r.total;
   state.histOffset += r.items.length;
 
+  const statEl = $('#hist-stat');
+  if (statEl) {
+    statEl.textContent = state.histTotal > 0 ? `共 ${state.histTotal} 张` : '';
+  }
+
   for (const it of r.items) {
     const a = document.createElement('a');
     a.href = it.url;
     a.target = '_blank';
+    a.className = 'hist-item';
     a.title = `${it.rel}\n${fmtTime(it.mtime)} · ${fmtSize(it.size)}`;
+
     const img = document.createElement('img');
     img.src = it.url;
-    img.loading = 'lazy';      // 历史可能很多，别一次全拉
+    img.loading = 'lazy';
     img.alt = it.name;
-    img.onclick = (e) => {
+
+    const overlay = document.createElement('div');
+    overlay.className = 'hist-overlay';
+    const overlayText = document.createElement('span');
+    overlayText.className = 'hist-overlay-text';
+    overlayText.textContent = it.name;
+    overlay.appendChild(overlayText);
+
+    a.onclick = (e) => {
       e.preventDefault();
-      $('#lightbox-img').src = it.url;
-      $('#lightbox').classList.add('on');
+      openLightbox(it.url, it.name, `${fmtTime(it.mtime)} · ${fmtSize(it.size)}`);
     };
-    a.appendChild(img);
+
+    a.append(img, overlay);
     $('#hist').appendChild(a);
   }
 
