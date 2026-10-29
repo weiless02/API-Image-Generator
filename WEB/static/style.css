@@ -87,7 +87,7 @@ html[data-theme="dark"] {
 /* ---------- 全局几何与字体基调 ---------- */
 * {
   box-sizing: border-box;
-  border-radius: 0 !important;
+  border-radius: 0;
 }
 
 [hidden] {
@@ -1097,7 +1097,7 @@ html[data-theme="light"] .moon-icon { display: none; }
 /* 风格主题切块 */
 .theme-options {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1234,4 +1234,80 @@ html[data-theme="light"] .moon-icon { display: none; }
   object-fit: contain;
   border: 1px solid rgba(255, 255, 255, 0.2);
   cursor: default;
+}
+
+/* 原版蓝黑暗色：沿用原始配色与圆角，保留当前布局和拖拽功能。 */
+html[data-ef-variant="classic-dark"] {
+  --ef-paper: #14161c;
+  --ef-panel: #1c1f28;
+  --ef-ink: #e6e9f0;
+  --ef-ink-2: #9aa3b5;
+  --ef-rule: #2e3341;
+  --ef-chip: #232733;
+  --ef-chip-hover: #2f4a78;
+  --ef-signal: #5b9dff;
+  --ef-on-signal: #07131f;
+  --ef-trace: #5b9dff;
+  --ef-danger: #f0736a;
+  --st-running-bg: rgba(91, 157, 255, .12);
+  --st-running-fg: #5b9dff;
+  --st-running-border: #2f4a78;
+  color-scheme: dark;
+}
+
+html[data-ef-variant="classic-dark"] .ef-tri,
+html[data-ef-variant="classic-dark"] .corner-bracket,
+html[data-ef-variant="classic-dark"] .btn-wipe {
+  display: none;
+}
+
+html[data-ef-variant="classic-dark"] .app { height: 100vh; }
+html[data-ef-variant="classic-dark"] .panel,
+html[data-ef-variant="classic-dark"] .task,
+html[data-ef-variant="classic-dark"] .modal-box { border-radius: 10px; }
+html[data-ef-variant="classic-dark"] :is(.panel-header, .foot, .task, .modal-box) {
+  border: 1px solid var(--ef-rule);
+}
+html[data-ef-variant="classic-dark"] :is(.ef-btn, .tab-btn, .theme-card, .hist-item, .drop-zone,
+  .empty, .ef-notice, .task .prompt, .thumb, .task .out a, .lightbox-content img,
+  input[type="text"], input[type="password"], textarea, select) {
+  border-radius: 8px;
+}
+html[data-ef-variant="classic-dark"] .ef-btn {
+  -webkit-mask: none;
+  mask: none;
+  font-weight: 600;
+}
+html[data-ef-variant="classic-dark"] .ef-btn-quiet {
+  background: transparent;
+  border: 1px solid var(--ef-rule);
+  color: var(--ef-ink-2);
+}
+html[data-ef-variant="classic-dark"] .ef-btn-quiet:hover {
+  background: var(--ef-chip);
+  border-color: var(--ef-signal);
+  color: var(--ef-ink);
+}
+html[data-ef-variant="classic-dark"] .ef-btn-primary:hover { background: #5b9dff; }
+html[data-ef-variant="classic-dark"] .tabs {
+  background: var(--ef-chip);
+  padding: 4px;
+  border-radius: 10px;
+}
+html[data-ef-variant="classic-dark"] .tab-btn { background: transparent; border: 0; }
+html[data-ef-variant="classic-dark"] .tab-btn.on { background: #2f4a78; color: #fff; }
+html[data-ef-variant="classic-dark"] :is(input[type="text"], input[type="password"], textarea, select) {
+  background: var(--ef-chip);
+}
+html[data-ef-variant="classic-dark"] .brand-tag { background: #2f4a78; color: #e6e9f0; border-radius: 6px; }
+html[data-ef-variant="classic-dark"] :is(.brand-text h1, .sect-name) { font-weight: 600; }
+html[data-ef-variant="classic-dark"] .task .status { border-radius: 5px; }
+html[data-ef-variant="classic-dark"] .st-done { color: #4ec98f; }
+html[data-ef-variant="classic-dark"] .st-cancelled { color: #e8b559; }
+html[data-ef-variant="classic-dark"] .spin { border-radius: 50%; }
+html[data-ef-variant="classic-dark"] .theme-icon { color: var(--ef-ink); }
+.dot-classic { background: #5b9dff; }
+
+@media (max-width: 900px) {
+  html[data-ef-variant="classic-dark"] .app { height: auto; }
 }

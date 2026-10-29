@@ -19,7 +19,7 @@ const state = {
   histOffset: 0,
   histLimit: 30,
   histTotal: 0,
-  theme: 'dark',      // 'dark' (nightshift) | 'light' (coldstore) | 'system'
+  theme: 'dark',      // dark（夜班）| light（冷库）| classic-dark（原版暗色）| system
 };
 
 /* ------------------------------------------------------------------ Endfield 主题切换 */
@@ -54,6 +54,7 @@ function initTheme() {
 }
 
 function applyTheme(pref, save = true) {
+  if (!['dark', 'light', 'classic-dark', 'system'].includes(pref)) pref = 'dark';
   state.theme = pref;
   let effective = pref;
   if (pref === 'system') {
@@ -62,10 +63,18 @@ function applyTheme(pref, save = true) {
   }
 
   // 浅色对应 coldstore，深色对应 nightshift
-  const variant = effective === 'light' ? 'coldstore' : 'nightshift';
+  const variant = effective === 'classic-dark' ? 'classic-dark'
+    : effective === 'light' ? 'coldstore' : 'nightshift';
 
-  document.documentElement.dataset.theme = effective;
+  document.documentElement.dataset.theme = effective === 'classic-dark' ? 'dark' : effective;
   document.documentElement.dataset.efVariant = variant;
+
+  const quickBtn = $('#btn-quick-theme');
+  const nextLabel = effective === 'light' ? '切换到夜班暗色' : '切换到冷库亮色';
+  quickBtn.title = nextLabel;
+  quickBtn.setAttribute('aria-label', nextLabel);
+  quickBtn.querySelector('.sun-icon').textContent = nextLabel;
+  quickBtn.querySelector('.moon-icon').textContent = nextLabel;
 
   const targetRadio = $(`input[name="app-theme"][value="${pref}"]`);
   if (targetRadio) targetRadio.checked = true;
