@@ -10,8 +10,9 @@ rem  comment line into a bogus command. Chinese notes live in the
 rem  .md file next to this one instead.
 rem ---------------------------------------------------------------
 
-set PY=C:\Users\Think\AppData\Local\Programs\Python\Python313\python.exe
-if not exist "%PY%" set PY=python
+rem Use the "python" found on PATH. If your interpreter lives somewhere else,
+rem put its full path here instead (for example: set PY=C:\Python313\python.exe).
+set PY=python
 
 rem Uncomment the next line to fake image generation locally
 rem (instant, no API calls). Useful when tweaking the UI.
